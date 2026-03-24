@@ -1,0 +1,12 @@
+node_modules
+dist
+.DS_Store
+.env
+.env.local
+coverage
+.expo
+.turbo
+*.log
+.tools
+apps/web/src/**/*.js
+packages/shared/src/**/*.js

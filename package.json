@@ -1,0 +1,17 @@
+{
+  "name": "laborforce",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev --workspace @laborforce/api",
+    "dev:web": "npm run dev --workspace @laborforce/web",
+    "dev:mobile": "npm run dev --workspace @laborforce/mobile",
+    "build": "npm run build --workspaces",
+    "lint": "npm run lint --workspaces"
+  }
+}
+
