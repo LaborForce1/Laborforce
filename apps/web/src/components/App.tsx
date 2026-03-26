@@ -58,6 +58,10 @@ interface SocialFeedResponse {
   items: SocialPost[];
 }
 
+interface SocialCreateResponse {
+  post: SocialPost;
+}
+
 interface AuthFormState {
   fullName: string;
   email: string;
@@ -81,6 +85,12 @@ interface JobFormState {
 
 interface ApplyFormState {
   [jobId: string]: string;
+}
+
+interface SocialFormState {
+  postText: string;
+  photoUrl: string;
+  videoUrl: string;
 }
 
 function formatMoney(value: number) {
@@ -134,6 +144,7 @@ export function App() {
   const [isLoadingThread, setIsLoadingThread] = useState(false);
   const [applyForms, setApplyForms] = useState<ApplyFormState>({});
   const [messageText, setMessageText] = useState("");
+  const [isPostingSocial, setIsPostingSocial] = useState(false);
   const [authForm, setAuthForm] = useState<AuthFormState>({
     fullName: "",
     email: "",
@@ -152,6 +163,11 @@ export function App() {
     benefits: "",
     countyLocation: "",
     certificationsRequired: ""
+  });
+  const [socialForm, setSocialForm] = useState<SocialFormState>({
+    postText: "",
+    photoUrl: "",
+    videoUrl: ""
   });
 
   useEffect(() => {
@@ -643,6 +659,45 @@ export function App() {
     }
   }
 
+  async function handleCreateSocialPost(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!authState?.accessToken) {
+      setErrorMessage("Login before posting to the feed.");
+      return;
+    }
+
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setIsPostingSocial(true);
+
+    try {
+      const response = await apiPost<SocialCreateResponse>(
+        "/social/feed",
+        {
+          postText: socialForm.postText.trim(),
+          photoUrls: socialForm.photoUrl.trim() ? [socialForm.photoUrl.trim()] : [],
+          videoUrl: socialForm.videoUrl.trim() ? socialForm.videoUrl.trim() : null,
+          isProofWall: true,
+          tradeTag: user?.tradeType ?? user?.businessName ?? user?.userTag ?? selectedTag,
+          locationDisplay: user?.zipCode ?? "Local"
+        },
+        authState.accessToken
+      );
+
+      setSocialPosts((current) => [response.post, ...current]);
+      setSocialForm({
+        postText: "",
+        photoUrl: "",
+        videoUrl: ""
+      });
+      setSuccessMessage("Post published to the feed.");
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Unable to publish post.");
+    } finally {
+      setIsPostingSocial(false);
+    }
+  }
+
   function switchExperience(view: "feed" | "reels" | "messages") {
     setActiveExperience(view);
     const params = new URLSearchParams(window.location.search);
@@ -720,9 +775,37 @@ export function App() {
                   <strong>Share a work win</strong>
                   <span className="pill">Proof Wall style</span>
                 </div>
-                <p className="muted">
-                  Before-and-after photos, certifications earned, pricing tips, finished installs, and business updates should live here first.
-                </p>
+                {user ? (
+                  <form className="stack" onSubmit={handleCreateSocialPost}>
+                    <p className="muted">
+                      Before-and-after photos, certifications earned, pricing tips, finished installs, and business updates should live here first.
+                    </p>
+                    <textarea
+                      rows={4}
+                      placeholder="Post a work update, lesson, proof wall photo, or business tip"
+                      value={socialForm.postText}
+                      onChange={(event) => setSocialForm((current) => ({ ...current, postText: event.target.value }))}
+                      required
+                    />
+                    <input
+                      placeholder="Photo URL"
+                      value={socialForm.photoUrl}
+                      onChange={(event) => setSocialForm((current) => ({ ...current, photoUrl: event.target.value }))}
+                    />
+                    <input
+                      placeholder="Short video URL"
+                      value={socialForm.videoUrl}
+                      onChange={(event) => setSocialForm((current) => ({ ...current, videoUrl: event.target.value }))}
+                    />
+                    <button className="actionButton" disabled={isPostingSocial} type="submit">
+                      {isPostingSocial ? "Posting..." : "Post to feed"}
+                    </button>
+                  </form>
+                ) : (
+                  <p className="muted">
+                    Sign in first, then post before-and-after photos, certifications earned, pricing tips, finished installs, and business updates.
+                  </p>
+                )}
               </div>
               {socialPosts.map((post) => (
                 <article key={post.id} className="socialPostCard">
