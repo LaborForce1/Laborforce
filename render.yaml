@@ -11,7 +11,7 @@ services:
     plan: free
     rootDir: .
     buildCommand: npm install && npm run build --workspace @laborforce/shared && npm run build --workspace @laborforce/api
-    startCommand: npm run build --workspace @laborforce/shared && npm run build --workspace @laborforce/api && npm run start --workspace @laborforce/api
+    startCommand: npm run start --workspace @laborforce/api
     envVars:
       - key: NODE_VERSION
         value: 22.14.0
