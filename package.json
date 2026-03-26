@@ -10,8 +10,8 @@
     "dev:api": "npm run dev --workspace @laborforce/api",
     "dev:web": "npm run dev --workspace @laborforce/web",
     "dev:mobile": "npm run dev --workspace @laborforce/mobile",
+    "start:api": "npm run start --workspace @laborforce/api",
     "build": "npm run build --workspaces",
     "lint": "npm run lint --workspaces"
   }
 }
-

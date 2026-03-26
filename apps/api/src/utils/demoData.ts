@@ -121,6 +121,44 @@ export const demoSocial: SocialPost[] = [
     helpfulCount: 9,
     commentsCount: 12,
     createdAt: new Date().toISOString()
+  },
+  {
+    id: "post-2",
+    authorId: "u-biz-1",
+    postText: "Quick HVAC tip reel: how we explain airflow problems to customers without the jargon. More trade education content coming.",
+    photoUrls: [
+      "https://images.unsplash.com/photo-1621905251918-48416bd8575a?auto=format&fit=crop&w=900&q=80"
+    ],
+    videoUrl: "reel-demo-hvac",
+    isProofWall: false,
+    tradeTag: "HVAC",
+    locationDisplay: "Brooklyn, NY",
+    latitude: 40.7171,
+    longitude: -73.9565,
+    respectsCount: 66,
+    impressedCount: 29,
+    helpfulCount: 34,
+    commentsCount: 8,
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString()
+  },
+  {
+    id: "post-3",
+    authorId: "u-emp-1",
+    postText: "Before and after conduit cleanup from a basement service upgrade. This is the kind of short visual content workers should be posting daily.",
+    photoUrls: [
+      "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=900&q=80"
+    ],
+    videoUrl: "reel-demo-electrical",
+    isProofWall: true,
+    tradeTag: "Electrical",
+    locationDisplay: "Queens, NY",
+    latitude: 40.7282,
+    longitude: -73.7949,
+    respectsCount: 94,
+    impressedCount: 53,
+    helpfulCount: 12,
+    commentsCount: 18,
+    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 20).toISOString()
   }
 ];
 

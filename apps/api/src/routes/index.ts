@@ -11,6 +11,7 @@ import { verificationRouter } from "../modules/verification/routes.js";
 import { messagesRouter } from "../modules/messages/routes.js";
 import { reviewsRouter } from "../modules/reviews/routes.js";
 import { alertsRouter } from "../modules/alerts/routes.js";
+import { applicationsRouter } from "../modules/applications/routes.js";
 
 export const apiRouter = Router();
 
@@ -30,4 +31,4 @@ apiRouter.use("/verification", verificationRouter);
 apiRouter.use("/messages", messagesRouter);
 apiRouter.use("/reviews", reviewsRouter);
 apiRouter.use("/alerts", alertsRouter);
-
+apiRouter.use("/", applicationsRouter);

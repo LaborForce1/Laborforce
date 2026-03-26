@@ -57,3 +57,56 @@ Seeded credentials:
 - Payments are modeled around Stripe deposits, escrow, subscriptions, and verification upsells.
 - AI conversations are persisted with `conversation_id` values prefixed by `ai_chat_`.
 - Personally sensitive verification data should remain encrypted and access-controlled in production.
+
+## Beta launch focus
+
+The current best beta scope is intentionally narrow:
+
+- user signup and login
+- employer job posting
+- county-based location entry
+- draft to publish flow with deposit handling
+- worker job browsing
+- verified-only direct messaging with SMS notification hooks
+
+Leave these out of the beta pitch until they are fully wired:
+
+- Quick Cash
+- CRM automation
+- social feed and Proof Wall
+- AI assistant workflows
+- marketplace and groups
+
+## Next launch steps
+
+1. Deploy the API and PostgreSQL to Render.
+2. Deploy the web app to Vercel or Render.
+3. Add real Stripe keys and test deposit checkout.
+4. Add Twilio messaging credentials to turn on SMS alerts for new messages.
+5. Invite a small beta group and watch the hiring flow.
+6. Fix friction before expanding scope.
+
+## Deploy to the web now
+
+The repo now includes a Render blueprint at [render.yaml](/Users/michaelhantz/Desktop/laborforce/render.yaml).
+
+Fastest path:
+
+1. Push your latest code to GitHub.
+2. In Render, click `New +` then `Blueprint`.
+3. Connect the GitHub repo: `LaborForce1/Laborforce`.
+4. Render will create:
+   - `laborforce-db`
+   - `laborforce-api`
+   - `laborforce-web`
+5. Set these two values in Render after the services exist:
+   - `WEB_URL` on `laborforce-api` = your public web URL
+   - `VITE_API_URL` on `laborforce-web` = your public API URL plus `/api`
+6. Run the database init and seed commands in the Render API shell:
+
+```bash
+npm run db:init --workspace @laborforce/api
+npm run db:seed --workspace @laborforce/api
+```
+
+Once that is done, your app will be live on the web instead of only on your laptop.

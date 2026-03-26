@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { pipelineStages, type JobListing, type PipelineStage, type User, type UserTag } from "@laborforce/shared";
-import { apiGet, apiPost } from "../api/client";
-import { demoCRM, demoQuickCash, demoSocial, userOptions } from "../data/mock";
+import { type EmployerApplicationView, type JobApplication, type JobListing, type Message, type MessageConversation, type SocialPost, type User, type UserTag } from "@laborforce/shared";
+import { apiGet, apiPatch, apiPost } from "../api/client";
+import { userOptions } from "../data/mock";
 
 const AUTH_STORAGE_KEY = "laborforce-web-auth";
 
@@ -32,6 +32,32 @@ interface PaymentsConfigResponse {
   stripeReady: boolean;
 }
 
+interface ApplicationsResponse {
+  items: JobApplication[];
+}
+
+interface EmployerApplicationsResponse {
+  items: EmployerApplicationView[];
+}
+
+interface UsersResponse extends Array<User> {}
+
+interface ConversationsResponse {
+  items: MessageConversation[];
+}
+
+interface ThreadResponse {
+  participant: User;
+  conversationId: string;
+  items: Message[];
+}
+
+interface SocialFeedResponse {
+  audience: string;
+  reactions: string[];
+  items: SocialPost[];
+}
+
 interface AuthFormState {
   fullName: string;
   email: string;
@@ -53,6 +79,10 @@ interface JobFormState {
   certificationsRequired: string;
 }
 
+interface ApplyFormState {
+  [jobId: string]: string;
+}
+
 function formatMoney(value: number) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -61,12 +91,34 @@ function formatMoney(value: number) {
   }).format(value);
 }
 
+function formatStatus(status: string) {
+  return status.replaceAll("_", " ");
+}
+
+function formatRelativeTime(value: string) {
+  const deltaMs = Date.now() - new Date(value).getTime();
+  const hours = Math.max(1, Math.floor(deltaMs / (1000 * 60 * 60)));
+  if (hours < 24) {
+    return `${hours}h`;
+  }
+
+  return `${Math.floor(hours / 24)}d`;
+}
+
 export function App() {
+  const [activeExperience, setActiveExperience] = useState<"feed" | "reels" | "messages">("feed");
   const [selectedTag, setSelectedTag] = useState<UserTag>("employee");
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [authState, setAuthState] = useState<AuthResponse["credentials"] | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [jobs, setJobs] = useState<JobListing[]>([]);
+  const [applications, setApplications] = useState<JobApplication[]>([]);
+  const [incomingApplications, setIncomingApplications] = useState<EmployerApplicationView[]>([]);
+  const [directoryUsers, setDirectoryUsers] = useState<User[]>([]);
+  const [conversations, setConversations] = useState<MessageConversation[]>([]);
+  const [threadMessages, setThreadMessages] = useState<Message[]>([]);
+  const [socialPosts, setSocialPosts] = useState<SocialPost[]>([]);
+  const [selectedRecipientId, setSelectedRecipientId] = useState<string>("");
   const [jobsRadius, setJobsRadius] = useState(50);
   const [isBooting, setIsBooting] = useState(true);
   const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
@@ -76,6 +128,12 @@ export function App() {
   const [stripeReady, setStripeReady] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isApplyingJobId, setIsApplyingJobId] = useState<string | null>(null);
+  const [updatingApplicationId, setUpdatingApplicationId] = useState<string | null>(null);
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [isLoadingThread, setIsLoadingThread] = useState(false);
+  const [applyForms, setApplyForms] = useState<ApplyFormState>({});
+  const [messageText, setMessageText] = useState("");
   const [authForm, setAuthForm] = useState<AuthFormState>({
     fullName: "",
     email: "",
@@ -117,16 +175,64 @@ export function App() {
   useEffect(() => {
     void loadJobs();
     void loadPaymentsConfig();
+    void loadSocialFeed();
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const view = params.get("view");
+    if (view === "feed" || view === "reels" || view === "messages") {
+      setActiveExperience(view);
+    }
   }, []);
 
   useEffect(() => {
     if (!authState?.accessToken) {
       setUser(null);
+      setApplications([]);
+      setIncomingApplications([]);
+      setDirectoryUsers([]);
+      setConversations([]);
+      setThreadMessages([]);
+      setSelectedRecipientId("");
       return;
     }
 
     void loadCurrentUser(authState.accessToken);
   }, [authState]);
+
+  useEffect(() => {
+    if (!authState?.accessToken || user?.userTag !== "employee") {
+      return;
+    }
+
+    void loadApplications(authState.accessToken);
+  }, [authState, user?.userTag]);
+
+  useEffect(() => {
+    if (!authState?.accessToken || user?.userTag !== "employer") {
+      return;
+    }
+
+    void loadEmployerApplications(authState.accessToken);
+  }, [authState, user?.userTag]);
+
+  useEffect(() => {
+    if (!authState?.accessToken || !user) {
+      return;
+    }
+
+    void loadDirectoryUsers(authState.accessToken, user.id);
+    void loadConversations(authState.accessToken);
+  }, [authState, user?.id]);
+
+  useEffect(() => {
+    if (!authState?.accessToken || !selectedRecipientId) {
+      return;
+    }
+
+    void loadThread(authState.accessToken, selectedRecipientId);
+  }, [authState, selectedRecipientId]);
 
   useEffect(() => {
     if (!authState?.accessToken) {
@@ -176,6 +282,12 @@ export function App() {
     }
   }, [selectedTag]);
 
+  const employerDrafts = jobs.filter((job) => user?.userTag === "employer" && job.employerId === user.id && job.status === "draft");
+  const employerActive = jobs.filter((job) => user?.userTag === "employer" && job.employerId === user.id && job.status === "active");
+  const applicationMap = new Map(applications.map((application) => [application.jobListingId, application]));
+  const unreadMessagesCount = conversations.reduce((total, conversation) => total + conversation.unreadCount, 0);
+  const reelPosts = socialPosts.slice(0, 4);
+
   async function loadJobs() {
     setIsLoadingJobs(true);
 
@@ -196,6 +308,65 @@ export function App() {
       setStripeReady(response.stripeReady);
     } catch {
       setStripeReady(false);
+    }
+  }
+
+  async function loadSocialFeed() {
+    try {
+      const response = await apiGet<SocialFeedResponse>("/social/feed");
+      setSocialPosts(response.items);
+    } catch {
+      setSocialPosts([]);
+    }
+  }
+
+  async function loadApplications(token: string) {
+    try {
+      const response = await apiGet<ApplicationsResponse>("/applications/mine", token);
+      setApplications(response.items);
+    } catch {
+      setApplications([]);
+    }
+  }
+
+  async function loadEmployerApplications(token: string) {
+    try {
+      const response = await apiGet<EmployerApplicationsResponse>("/applications/employer", token);
+      setIncomingApplications(response.items);
+    } catch {
+      setIncomingApplications([]);
+    }
+  }
+
+  async function loadDirectoryUsers(token: string, currentUserId: string) {
+    try {
+      const response = await apiGet<UsersResponse>("/users", token);
+      setDirectoryUsers(response.filter((candidate) => candidate.id !== currentUserId && candidate.isVerified));
+    } catch {
+      setDirectoryUsers([]);
+    }
+  }
+
+  async function loadConversations(token: string) {
+    try {
+      const response = await apiGet<ConversationsResponse>("/messages", token);
+      setConversations(response.items);
+    } catch {
+      setConversations([]);
+    }
+  }
+
+  async function loadThread(token: string, recipientId: string) {
+    setIsLoadingThread(true);
+
+    try {
+      const response = await apiGet<ThreadResponse>(`/messages/conversation/${recipientId}`, token);
+      setThreadMessages(response.items);
+    } catch (error) {
+      setThreadMessages([]);
+      setErrorMessage(error instanceof Error ? error.message : "Unable to load conversation.");
+    } finally {
+      setIsLoadingThread(false);
     }
   }
 
@@ -244,6 +415,14 @@ export function App() {
       );
       setAuthForm((current) => ({ ...current, password: "" }));
       await loadJobs();
+      if (response.user.userTag === "employee") {
+        await loadApplications(response.credentials.accessToken);
+      }
+      if (response.user.userTag === "employer") {
+        await loadEmployerApplications(response.credentials.accessToken);
+      }
+      await loadDirectoryUsers(response.credentials.accessToken, response.user.id);
+      await loadConversations(response.credentials.accessToken);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Unable to sign in.");
     } finally {
@@ -295,6 +474,7 @@ export function App() {
         certificationsRequired: ""
       });
       await loadJobs();
+      await loadEmployerApplications(authState.accessToken);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Unable to create job.");
     } finally {
@@ -321,6 +501,7 @@ export function App() {
 
       setSuccessMessage(response.message);
       await loadJobs();
+      await loadEmployerApplications(authState.accessToken);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Unable to complete deposit.");
     } finally {
@@ -364,6 +545,112 @@ export function App() {
     }
   }
 
+  async function handleApply(jobId: string) {
+    if (!authState?.accessToken) {
+      setErrorMessage("Sign in as an employee before applying.");
+      return;
+    }
+
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setIsApplyingJobId(jobId);
+
+    try {
+      const response = await apiPost<{ message: string }>(
+        `/jobs/${jobId}/apply`,
+        {
+          message: applyForms[jobId] ?? ""
+        },
+        authState.accessToken
+      );
+
+      setSuccessMessage(response.message);
+      setApplyForms((current) => ({ ...current, [jobId]: "" }));
+      await loadJobs();
+      if (authState?.accessToken) {
+        await loadApplications(authState.accessToken);
+      }
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Unable to apply.");
+    } finally {
+      setIsApplyingJobId(null);
+    }
+  }
+
+  async function handleEmployerApplicationStatus(
+    applicationId: string,
+    status: "viewed" | "shortlisted" | "rejected" | "hired"
+  ) {
+    if (!authState?.accessToken) {
+      setErrorMessage("Sign in as an employer before managing applicants.");
+      return;
+    }
+
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setUpdatingApplicationId(applicationId);
+
+    try {
+      const response = await apiPatch<{ message: string }>(
+        `/applications/${applicationId}/status`,
+        { status },
+        authState.accessToken
+      );
+
+      setSuccessMessage(response.message);
+      await loadEmployerApplications(authState.accessToken);
+      await loadJobs();
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Unable to update applicant.");
+    } finally {
+      setUpdatingApplicationId(null);
+    }
+  }
+
+  async function handleSendMessage() {
+    if (!authState?.accessToken || !selectedRecipientId) {
+      setErrorMessage("Pick a verified person before sending a message.");
+      return;
+    }
+
+    if (!messageText.trim()) {
+      setErrorMessage("Type a message first.");
+      return;
+    }
+
+    setErrorMessage(null);
+    setSuccessMessage(null);
+    setIsSendingMessage(true);
+
+    try {
+      await apiPost<{ message: Message; conversationId: string }>(
+        "/messages",
+        {
+          recipientId: selectedRecipientId,
+          messageText: messageText.trim()
+        },
+        authState.accessToken
+      );
+
+      setMessageText("");
+      await loadConversations(authState.accessToken);
+      await loadThread(authState.accessToken, selectedRecipientId);
+      setSuccessMessage("Message sent.");
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Unable to send message.");
+    } finally {
+      setIsSendingMessage(false);
+    }
+  }
+
+  function switchExperience(view: "feed" | "reels" | "messages") {
+    setActiveExperience(view);
+    const params = new URLSearchParams(window.location.search);
+    params.set("view", view);
+    const next = params.toString();
+    window.history.replaceState({}, "", next ? `/?${next}` : "/");
+  }
+
   function signOut() {
     setAuthState(null);
     setUser(null);
@@ -373,43 +660,121 @@ export function App() {
 
   return (
     <div className="shell">
-      <section className="hero">
-        <div className="headerRow">
-          <div>
-            <div className="badge">LaborForce Verified Workforce Platform</div>
-            <h1>{roleCopy.headline}</h1>
-            <p className="muted" style={{ maxWidth: 820 }}>
-              {roleCopy.summary}
-            </p>
-          </div>
-          <div className="card">
-            {user ? (
-              <>
-                <strong>{user.fullName}</strong>
-                <div className="muted">{user.tradeType ?? user.businessName ?? user.userTag}</div>
-                <div style={{ marginTop: 10 }}>{user.trustBadge ?? user.verificationStatus}</div>
-                <button className="actionButton ghostButton" style={{ marginTop: 14 }} onClick={signOut}>
-                  Sign out
-                </button>
-              </>
-            ) : (
-              <>
-                <strong>Live auth ready</strong>
-                <div className="muted">Use the seeded employer to test job posting.</div>
-                <div style={{ marginTop: 10 }}>dispatch@northsidehvac.com</div>
-              </>
-            )}
-          </div>
-        </div>
+      {activeExperience === "feed" && (
+        <>
+          <section className="hero">
+            <div className="headerRow">
+              <div>
+                <div className="badge">LaborForce Verified Workforce Platform</div>
+                <h1>{roleCopy.headline}</h1>
+                <p className="muted" style={{ maxWidth: 820 }}>
+                  {roleCopy.summary}
+                </p>
+              </div>
+              <div className="card">
+                {user ? (
+                  <>
+                    <strong>{user.fullName}</strong>
+                    <div className="muted">{user.tradeType ?? user.businessName ?? user.userTag}</div>
+                    <div style={{ marginTop: 10 }}>{user.trustBadge ?? user.verificationStatus}</div>
+                    <button className="actionButton ghostButton" style={{ marginTop: 14 }} onClick={signOut}>
+                      Sign out
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <strong>Live auth ready</strong>
+                    <div className="muted">Use the seeded employer to test job posting.</div>
+                    <div style={{ marginTop: 10 }}>dispatch@northsidehvac.com</div>
+                  </>
+                )}
+              </div>
+            </div>
 
-        <div className="tileGrid">
-          {userOptions.map((option) => (
-            <button className="tile" key={option.tag} onClick={() => setSelectedTag(option.tag)}>
-              <div className="badge">{option.tag === selectedTag ? "Selected role" : "Choose role"}</div>
-              <h3>{option.title}</h3>
-              <p className="muted">{option.description}</p>
-            </button>
-          ))}
+            <div className="tileGrid">
+              {userOptions.map((option) => (
+                <button className="tile" key={option.tag} onClick={() => setSelectedTag(option.tag)}>
+                  <div className="badge">{option.tag === selectedTag ? "Selected role" : "Choose role"}</div>
+                  <h3>{option.title}</h3>
+                  <p className="muted">{option.description}</p>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section style={{ marginTop: 24 }} className="card socialShell">
+            <div className="headerRow">
+              <div>
+                <div className="badge">Feed page</div>
+                <h2 style={{ marginTop: 10 }}>Open LaborForce like a feed, not a classifieds board</h2>
+                <p className="muted" style={{ marginTop: 8 }}>
+                  Scroll the feed first, then jump between Feed, Reels, and Messages from the bottom bar.
+                </p>
+              </div>
+              <div className="badge">feed</div>
+            </div>
+            <div className="socialLayout" style={{ marginTop: 16 }}>
+            <div className="stack">
+              <div className="composerCard">
+                <div className="headerRow">
+                  <strong>Share a work win</strong>
+                  <span className="pill">Proof Wall style</span>
+                </div>
+                <p className="muted">
+                  Before-and-after photos, certifications earned, pricing tips, finished installs, and business updates should live here first.
+                </p>
+              </div>
+              {socialPosts.map((post) => (
+                <article key={post.id} className="socialPostCard">
+                  <div className="headerRow">
+                    <div>
+                      <strong>{post.tradeTag} creator</strong>
+                      <div className="muted">{post.locationDisplay} • {formatRelativeTime(post.createdAt)}</div>
+                    </div>
+                    <span className="pill">{post.isProofWall ? "Proof Wall" : "Trade post"}</span>
+                  </div>
+                  <p>{post.postText}</p>
+                  {post.photoUrls[0] && (
+                    <img className="socialImage" src={post.photoUrls[0]} alt={post.tradeTag} />
+                  )}
+                  <div className="pillRow">
+                    <span className="pill">Respect {post.respectsCount}</span>
+                    <span className="pill">Impressed {post.impressedCount}</span>
+                    <span className="pill">Helpful {post.helpfulCount}</span>
+                    <span className="pill">{post.commentsCount} comments</span>
+                  </div>
+                </article>
+              ))}
+            </div>
+            <div className="stack">
+              <div className="card">
+                <h3>Trending jobs</h3>
+                <div className="stack" style={{ marginTop: 12 }}>
+                  {jobs.slice(0, 3).map((job) => (
+                    <div key={job.id} className="trendItem">
+                      <strong>{job.jobTitle}</strong>
+                      <div className="muted">{job.countyLocation} • {formatMoney(job.hourlyRateMin)} - {formatMoney(job.hourlyRateMax)}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="card">
+                <h3>Why this works</h3>
+                <p className="muted">People open apps for people. Jobs, hiring, and money move better when the home page feels alive.</p>
+              </div>
+            </div>
+            </div>
+          </section>
+
+      <section style={{ marginTop: 24 }} className="workToolsHeader">
+        <div className="card">
+          <div className="headerRow">
+            <div>
+              <div className="badge">Work tools</div>
+              <h2 style={{ marginTop: 10 }}>Hiring, posting, and account tools live underneath the social feed</h2>
+            </div>
+            <div className="muted">This part matters, but it should not overpower the social front page.</div>
+          </div>
         </div>
       </section>
 
@@ -448,6 +813,21 @@ export function App() {
                     ? "This dashboard is using the live LaborForce API and Stripe checkout flow."
                     : "This dashboard is using the live LaborForce API. Stripe is not configured yet, so deposit checkout falls back locally."}
               </div>
+              {user.userTag === "employer" && (
+                <div className="pillRow">
+                  <span className="pill">{employerDrafts.length} draft jobs</span>
+                  <span className="pill">{employerActive.length} active jobs</span>
+                  <span className="pill">{incomingApplications.length} applicants</span>
+                  <span className="pill">{conversations.length} conversations</span>
+                  <span className="pill">{unreadMessagesCount} unread messages</span>
+                </div>
+              )}
+              {user.userTag !== "employer" && (
+                <div className="pillRow">
+                  <span className="pill">{conversations.length} conversations</span>
+                  <span className="pill">{unreadMessagesCount} unread messages</span>
+                </div>
+              )}
             </div>
           ) : (
             <form className="stack" onSubmit={handleAuthSubmit}>
@@ -530,6 +910,10 @@ export function App() {
           <div className="stack" style={{ marginTop: 12 }}>
             {jobs.map((job) => (
               <article key={job.id} className="card">
+                {(() => {
+                  const existingApplication = applicationMap.get(job.id);
+                  return (
+                    <>
                 <div className="headerRow">
                   <div>
                     <strong>{job.jobTitle}</strong>
@@ -540,9 +924,10 @@ export function App() {
                 <p className="muted">{job.description}</p>
                 <div className="pillRow">
                   <span className="pill">{formatMoney(job.hourlyRateMin)} - {formatMoney(job.hourlyRateMax)}</span>
-                  <span className="pill">{job.jobType.replace("_", " ")}</span>
-                  <span className="pill">{job.status}</span>
+                  <span className="pill">{formatStatus(job.jobType)}</span>
+                  <span className="pill">{formatStatus(job.status)}</span>
                   <span className="pill">Deposit {formatMoney(job.depositAmount)}</span>
+                  {existingApplication && <span className="pill">Applied</span>}
                 </div>
                 {user?.userTag === "employer" && job.employerId === user.id && job.status === "draft" && (
                   <button
@@ -558,6 +943,31 @@ export function App() {
                         : "Publish with local fallback"}
                   </button>
                 )}
+                {user?.userTag === "employee" && job.status === "active" && !existingApplication && (
+                  <div className="stack" style={{ marginTop: 12 }}>
+                    <textarea
+                      rows={3}
+                      placeholder="Add a short intro for the employer"
+                      value={applyForms[job.id] ?? ""}
+                      onChange={(event) => setApplyForms((current) => ({ ...current, [job.id]: event.target.value }))}
+                    />
+                    <button
+                      className="actionButton"
+                      disabled={isApplyingJobId === job.id}
+                      onClick={() => void handleApply(job.id)}
+                    >
+                      {isApplyingJobId === job.id ? "Applying..." : "Apply now"}
+                    </button>
+                  </div>
+                )}
+                {user?.userTag === "employee" && existingApplication && (
+                  <div className="notice successNotice" style={{ marginTop: 12 }}>
+                    Applied on {new Date(existingApplication.appliedAt).toLocaleDateString()}.
+                  </div>
+                )}
+                    </>
+                  );
+                })()}
               </article>
             ))}
           </div>
@@ -639,124 +1049,435 @@ export function App() {
             </div>
           )}
         </div>
+
+        <div className="card">
+          <div className="headerRow">
+            <h2>Applicant Inbox</h2>
+            <div className="badge">{incomingApplications.length} total</div>
+          </div>
+          {user?.userTag === "employer" ? (
+            incomingApplications.length > 0 ? (
+              <div className="stack" style={{ marginTop: 12 }}>
+                {incomingApplications.map((application) => (
+                  <article key={application.id} className="applicationItem">
+                    <div className="headerRow">
+                      <div>
+                        <strong>{application.applicant.fullName}</strong>
+                        <div className="muted">
+                          {application.applicant.tradeType ?? "Trade not set"} • {application.job.jobTitle}
+                        </div>
+                      </div>
+                      <div className="pillRow">
+                        <span className="pill">{application.job.countyLocation}</span>
+                        <span className="pill">{formatStatus(application.status)}</span>
+                      </div>
+                    </div>
+                    <div className="metaRow">
+                      <span>{application.applicant.verificationStatus}</span>
+                      <span>{application.applicant.trustBadge ?? "No trust badge yet"}</span>
+                      <span>{application.applicant.ratingAverage.toFixed(1)} stars</span>
+                      <span>{application.applicant.ratingCount} ratings</span>
+                    </div>
+                    <p className="muted">
+                      {application.message?.trim() || "This applicant did not include a message yet."}
+                    </p>
+                    <div className="pillRow">
+                      <button
+                        className="actionButton ghostButton"
+                        disabled={updatingApplicationId === application.id}
+                        onClick={() => void handleEmployerApplicationStatus(application.id, "viewed")}
+                      >
+                        {updatingApplicationId === application.id ? "Saving..." : "Mark viewed"}
+                      </button>
+                      <button
+                        className="actionButton"
+                        disabled={updatingApplicationId === application.id}
+                        onClick={() => void handleEmployerApplicationStatus(application.id, "shortlisted")}
+                      >
+                        {updatingApplicationId === application.id ? "Saving..." : "Shortlist"}
+                      </button>
+                      <button
+                        className="actionButton ghostButton"
+                        disabled={updatingApplicationId === application.id}
+                        onClick={() => void handleEmployerApplicationStatus(application.id, "rejected")}
+                      >
+                        {updatingApplicationId === application.id ? "Saving..." : "Reject"}
+                      </button>
+                      <button
+                        className="actionButton"
+                        disabled={updatingApplicationId === application.id}
+                        onClick={() => void handleEmployerApplicationStatus(application.id, "hired")}
+                      >
+                        {updatingApplicationId === application.id ? "Saving..." : "Hire"}
+                      </button>
+                    </div>
+                    <div className="muted">
+                      Applied on {new Date(application.appliedAt).toLocaleDateString()} for a {formatStatus(application.job.status)} listing.
+                      {application.employerViewed ? " Employer has reviewed this application." : ""}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="stack" style={{ marginTop: 12 }}>
+                <div className="muted">No workers have applied yet. Publish an active job and worker applications will show up here.</div>
+                <div className="pillRow">
+                  <span className="pill">{employerActive.length} active jobs</span>
+                  <span className="pill">{employerDrafts.length} drafts waiting on publish</span>
+                </div>
+              </div>
+            )
+          ) : (
+            <div className="stack" style={{ marginTop: 12 }}>
+              <div className="muted">Sign in as an employer to review incoming applicants for your jobs.</div>
+              <div className="pillRow">
+                <span className="pill">dispatch@northsidehvac.com</span>
+                <span className="pill">LaborForce123!</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="card">
+          <div className="headerRow">
+            <h2>Verified Messages</h2>
+            <div className="badge">{unreadMessagesCount} unread</div>
+          </div>
+          {user ? (
+            <div className="stack" style={{ marginTop: 12 }}>
+              <label className="field">
+                <span>Pick a verified person</span>
+                <select
+                  value={selectedRecipientId}
+                  onChange={(event) => setSelectedRecipientId(event.target.value)}
+                >
+                  <option value="">Choose someone</option>
+                  {directoryUsers.map((candidate) => (
+                    <option key={candidate.id} value={candidate.id}>
+                      {candidate.fullName} - {candidate.tradeType ?? candidate.businessName ?? candidate.userTag}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {conversations.length > 0 && (
+                <div className="stack">
+                  {conversations.map((conversation) => (
+                    <button
+                      key={conversation.conversationId}
+                      className="conversationButton"
+                      onClick={() => setSelectedRecipientId(conversation.participant.id)}
+                    >
+                      <div className="headerRow">
+                        <strong>{conversation.participant.fullName}</strong>
+                        <span className="pill">{conversation.unreadCount} unread</span>
+                      </div>
+                      <div className="muted">
+                        {conversation.latestMessage.messageText}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {selectedRecipientId ? (
+                <>
+                  <div className="messageThread">
+                    {isLoadingThread ? (
+                      <div className="muted">Loading conversation...</div>
+                    ) : threadMessages.length > 0 ? (
+                      threadMessages.map((message) => (
+                        <article
+                          key={message.id}
+                          className={`messageBubble ${message.senderId === user.id ? "sentBubble" : "receivedBubble"}`}
+                        >
+                          <strong>{message.senderId === user.id ? "You" : "Them"}</strong>
+                          <div>{message.messageText}</div>
+                          <div className="muted">{new Date(message.sentAt).toLocaleString()}</div>
+                        </article>
+                      ))
+                    ) : (
+                      <div className="muted">No messages yet. Say what you need and start the chat.</div>
+                    )}
+                  </div>
+                  <div className="stack">
+                    <textarea
+                      rows={3}
+                      placeholder="Type your message"
+                      value={messageText}
+                      onChange={(event) => setMessageText(event.target.value)}
+                    />
+                    <button
+                      className="actionButton"
+                      disabled={isSendingMessage}
+                      onClick={() => void handleSendMessage()}
+                    >
+                      {isSendingMessage ? "Sending..." : "Send message"}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="muted">Only verified users can message each other. Pick a verified person to start.</div>
+              )}
+            </div>
+          ) : (
+            <div className="muted" style={{ marginTop: 12 }}>Sign in to use verified messaging.</div>
+          )}
+        </div>
       </section>
 
       <section style={{ marginTop: 24 }} className="statsGrid">
         <div className="card">
-          <div className="muted">Radius</div>
+          <div className="muted">Beta focus</div>
+          <h3>Hiring flow</h3>
+          <div>Login, post a job, pay deposit, publish, and browse live listings.</div>
+        </div>
+        <div className="card">
+          <div className="muted">Coverage</div>
           <h3>{jobsRadius} miles</h3>
-          <div>Local-first jobs, Quick Cash, and social posts</div>
+          <div>Jobs are currently filtered around a local radius and displayed by county location.</div>
         </div>
         <div className="card">
-          <div className="muted">Premium</div>
-          <h3>$19.99/mo</h3>
-          <div>CRM, AI assistant, HD uploads, calendar, client portal</div>
-        </div>
-        <div className="card">
-          <div className="muted">Ghost job prevention</div>
+          <div className="muted">Trust mechanic</div>
           <h3>$20 deposit</h3>
-          <div>Refunded when closed correctly, forfeited on expiry</div>
+          <div>Required before publishing, with Stripe-ready checkout and a local fallback for development.</div>
         </div>
         <div className="card">
-          <div className="muted">Quick Cash fee</div>
-          <h3>4%</h3>
-          <div>Escrow held until customer marks completion</div>
+          <div className="muted">Beta status</div>
+          <h3>{stripeReady ? "Stripe ready" : "Local payment fallback"}</h3>
+          <div>Core job posting is real. Community, CRM, and Quick Cash are intentionally not in beta yet.</div>
         </div>
       </section>
 
-      <section style={{ marginTop: 24 }} className="feedGrid">
+      <section style={{ marginTop: 24 }} className="feedGrid betaGrid">
         <div className="card">
           <div className="headerRow">
-            <h2>Quick Cash</h2>
-            <div className="pillRow">
-              <span className="pill">Escrow</span>
-              <span className="pill">Surge</span>
+            <h2>Beta Scope</h2>
+            <div className="badge">What is live</div>
+          </div>
+          <div className="stack">
+            <div className="betaItem">
+              <strong>Working now</strong>
+              <p className="muted">Role-based signup and login, employer posting, county-based jobs, and deposit-based publishing.</p>
+            </div>
+            <div className="betaItem">
+              <strong>Good enough for beta</strong>
+              <p className="muted">Invite a small group of employers and workers, watch how they use the hiring flow, and fix friction quickly.</p>
+            </div>
+            <div className="betaItem">
+              <strong>Not in beta yet</strong>
+              <p className="muted">Quick Cash, social feed, CRM, AI assistant, and marketplace are still scaffolded and should stay out of the beta pitch.</p>
             </div>
           </div>
-          {demoQuickCash.map((post) => (
-            <article key={post.id} className="card" style={{ marginTop: 12 }}>
-              <strong>{post.taskTitle}</strong>
-              <p className="muted">{post.description}</p>
-              <div className="pillRow">
-                <span className="pill">{formatMoney(post.budgetMin)} - {formatMoney(post.budgetMax)}</span>
-                <span className="pill">{post.estimatedHours} hrs</span>
-                <span className="pill">Escrow {formatMoney(post.escrowAmount)}</span>
-              </div>
-            </article>
-          ))}
         </div>
 
         <div className="card">
           <div className="headerRow">
-            <h2>Proof Wall</h2>
-            <div className="badge">Verified only</div>
+            <h2>Launch Checklist</h2>
+            <div className="badge">Next moves</div>
           </div>
-          {demoSocial.map((post) => (
-            <article key={post.id} className="card" style={{ marginTop: 12 }}>
-              <img
-                src={post.photoUrls[0]}
-                alt={post.tradeTag}
-                style={{ width: "100%", borderRadius: 14, aspectRatio: "16 / 10", objectFit: "cover" }}
-              />
-              <p>{post.postText}</p>
-              <div className="pillRow">
-                <span className="pill">Respect {post.respectsCount}</span>
-                <span className="pill">Impressed {post.impressedCount}</span>
-                <span className="pill">Helpful {post.helpfulCount}</span>
+          <div className="stack">
+            <div className="checkItem">
+              <span className="checkDot" />
+              <div>
+                <strong>GitHub repo is live</strong>
+                <div className="muted">Code is now shareable and ready for collaboration.</div>
               </div>
-            </article>
-          ))}
+            </div>
+            <div className="checkItem">
+              <span className="checkDot" />
+              <div>
+                <strong>Database-backed jobs are live</strong>
+                <div className="muted">The beta loop is already reading and writing real data.</div>
+              </div>
+            </div>
+            <div className="checkItem">
+              <span className="checkDot pendingDot" />
+              <div>
+                <strong>Deploy backend and frontend</strong>
+                <div className="muted">Next cloud step so other people can test without your laptop running.</div>
+              </div>
+            </div>
+            <div className="checkItem">
+              <span className="checkDot pendingDot" />
+              <div>
+                <strong>Add real Stripe keys</strong>
+                <div className="muted">Switch deposit publishing from fallback mode to actual checkout.</div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="card">
           <div className="headerRow">
-            <h2>What Is Real Now</h2>
-            <div className="badge">Current slice</div>
+            <h2>Your Employer Snapshot</h2>
+            <div className="badge">Beta metrics</div>
           </div>
           <div className="stack">
             <div className="pillRow">
-              <span className="pill">Live signup/login</span>
-              <span className="pill">JWT stored locally</span>
-              <span className="pill">/users/me</span>
-              <span className="pill">/jobs</span>
-              <span className="pill">Deposit flow</span>
+              <span className="pill">Draft jobs {employerDrafts.length}</span>
+              <span className="pill">Active jobs {employerActive.length}</span>
+              <span className="pill">Stripe {stripeReady ? "configured" : "not configured"}</span>
             </div>
             <p className="muted">
-              Quick Cash, Proof Wall feed, and CRM remain scaffolded while the core hiring flow is being connected
-              end to end.
+              This section is here to keep the beta grounded in the real funnel. If a feature does not help someone sign in,
+              post a job, publish it, or browse it, it should probably wait until after beta.
             </p>
           </div>
         </div>
       </section>
+        </>
+      )}
 
-      <section style={{ marginTop: 24 }}>
-        <div className="headerRow">
-          <h2>CRM Pipeline</h2>
-          <div className="badge">Premium employers</div>
-        </div>
-        <div className="crmGrid">
-          {pipelineStages.map((stage: PipelineStage) => (
-            <div className="column" key={stage}>
-              <div className="headerRow">
-                <strong>{stage}</strong>
-                <span className="muted">{demoCRM.filter((contact) => contact.pipelineStage === stage).length}</span>
-              </div>
-              {demoCRM
-                .filter((contact) => contact.pipelineStage === stage)
-                .map((contact) => (
-                  <div key={contact.id} className="card" style={{ marginTop: 12 }}>
-                    <strong>{contact.contactName}</strong>
-                    <div className="muted">{contact.contactEmail}</div>
-                    <div style={{ marginTop: 8 }}>{formatMoney(contact.projectValue ?? 0)}</div>
-                    <div style={{ marginTop: 8, color: "var(--danger)" }}>
-                      Follow-up overdue
-                    </div>
-                  </div>
-                ))}
+      {activeExperience === "reels" && (
+        <section className="card socialShell">
+          <div className="headerRow">
+            <div>
+              <div className="badge">Reels page</div>
+              <h2 style={{ marginTop: 10 }}>Short-form work videos and trade tips</h2>
+              <p className="muted" style={{ marginTop: 8 }}>
+                This page should feel like a vertical work-content rabbit hole.
+              </p>
             </div>
-          ))}
-        </div>
-      </section>
+            <div className="badge">reels</div>
+          </div>
+          <div className="reelsGrid" style={{ marginTop: 16 }}>
+            {reelPosts.map((post, index) => (
+              <article key={post.id} className="reelCard">
+                {post.photoUrls[0] && <img className="reelImage" src={post.photoUrls[0]} alt={post.tradeTag} />}
+                <div className="reelOverlay">
+                  <div className="badge">Short video concept #{index + 1}</div>
+                  <h3>{post.tradeTag} Reel</h3>
+                  <p>{post.postText}</p>
+                  <div className="pillRow">
+                    <span className="pill">How-to</span>
+                    <span className="pill">Work proof</span>
+                    <span className="pill">Career tips</span>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {activeExperience === "messages" && (
+        <section className="card socialShell">
+          <div className="headerRow">
+            <div>
+              <div className="badge">Messages page</div>
+              <h2 style={{ marginTop: 10 }}>Verified-only conversations</h2>
+              <p className="muted" style={{ marginTop: 8 }}>
+                Real DMs between verified people, with unread counts and SMS hooks.
+              </p>
+            </div>
+            <div className="badge">{unreadMessagesCount} unread</div>
+          </div>
+          <div className="socialLayout" style={{ marginTop: 16 }}>
+            <div className="stack">
+              {conversations.length > 0 ? (
+                conversations.map((conversation) => (
+                  <button
+                    key={conversation.conversationId}
+                    className="conversationButton"
+                    onClick={() => setSelectedRecipientId(conversation.participant.id)}
+                  >
+                    <div className="headerRow">
+                      <strong>{conversation.participant.fullName}</strong>
+                      <span className="pill">{conversation.unreadCount} unread</span>
+                    </div>
+                    <div className="muted">
+                      {conversation.participant.tradeType ?? conversation.participant.businessName ?? conversation.participant.userTag}
+                    </div>
+                    <div>{conversation.latestMessage.messageText}</div>
+                  </button>
+                ))
+              ) : (
+                <div className="card">
+                  <p className="muted">Your inbox will feel like a social DM section once people start connecting here.</p>
+                </div>
+              )}
+            </div>
+            <div className="stack">
+              <div className="card">
+                <h3>Pick a verified person</h3>
+                <select
+                  value={selectedRecipientId}
+                  onChange={(event) => setSelectedRecipientId(event.target.value)}
+                >
+                  <option value="">Choose someone</option>
+                  {directoryUsers.map((candidate) => (
+                    <option key={candidate.id} value={candidate.id}>
+                      {candidate.fullName} - {candidate.tradeType ?? candidate.businessName ?? candidate.userTag}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {selectedRecipientId && (
+                <>
+                  <div className="messageThread">
+                    {isLoadingThread ? (
+                      <div className="muted">Loading conversation...</div>
+                    ) : threadMessages.length > 0 ? (
+                      threadMessages.map((message) => (
+                        <article
+                          key={message.id}
+                          className={`messageBubble ${message.senderId === user?.id ? "sentBubble" : "receivedBubble"}`}
+                        >
+                          <strong>{message.senderId === user?.id ? "You" : "Them"}</strong>
+                          <div>{message.messageText}</div>
+                          <div className="muted">{new Date(message.sentAt).toLocaleString()}</div>
+                        </article>
+                      ))
+                    ) : (
+                      <div className="muted">No messages yet. Start the conversation.</div>
+                    )}
+                  </div>
+                  <div className="stack">
+                    <textarea
+                      rows={3}
+                      placeholder="Type your message"
+                      value={messageText}
+                      onChange={(event) => setMessageText(event.target.value)}
+                    />
+                    <button
+                      className="actionButton"
+                      disabled={isSendingMessage}
+                      onClick={() => void handleSendMessage()}
+                    >
+                      {isSendingMessage ? "Sending..." : "Send message"}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
+      <nav className="bottomNav">
+        <button
+          className={`bottomNavButton ${activeExperience === "feed" ? "bottomNavActive" : ""}`}
+          onClick={() => switchExperience("feed")}
+        >
+          <span className="bottomNavIcon">Home</span>
+          <span>Feed</span>
+        </button>
+        <button
+          className={`bottomNavButton ${activeExperience === "reels" ? "bottomNavActive" : ""}`}
+          onClick={() => switchExperience("reels")}
+        >
+          <span className="bottomNavIcon">Play</span>
+          <span>Reels</span>
+        </button>
+        <button
+          className={`bottomNavButton ${activeExperience === "messages" ? "bottomNavActive" : ""}`}
+          onClick={() => switchExperience("messages")}
+        >
+          <span className="bottomNavIcon">Chat</span>
+          <span>Messages</span>
+        </button>
+      </nav>
     </div>
   );
 }

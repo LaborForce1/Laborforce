@@ -117,5 +117,65 @@ export interface FeedBundle {
   social: SocialPost[];
 }
 
+export interface JobApplication {
+  id: string;
+  applicantId: string;
+  jobListingId: string;
+  status: ApplicationStatus;
+  message?: string | null;
+  appliedAt: string;
+  employerViewed: boolean;
+}
+
+export interface EmployerApplicationView {
+  id: string;
+  status: ApplicationStatus;
+  message?: string | null;
+  appliedAt: string;
+  employerViewed: boolean;
+  job: {
+    id: string;
+    jobTitle: string;
+    countyLocation: string;
+    status: ListingStatus;
+  };
+  applicant: {
+    id: string;
+    fullName: string;
+    tradeType?: string | null;
+    ratingAverage: number;
+    ratingCount: number;
+    trustBadge?: TrustBadge | null;
+    verificationStatus: VerificationStatus;
+  };
+}
+
+export interface Message {
+  id: string;
+  senderId: string;
+  recipientId: string;
+  conversationId: string;
+  messageText: string;
+  attachmentUrl?: string | null;
+  isRead: boolean;
+  sentAt: string;
+}
+
+export interface MessageConversation {
+  conversationId: string;
+  participant: {
+    id: string;
+    fullName: string;
+    userTag: UserTag;
+    tradeType?: string | null;
+    businessName?: string | null;
+    isVerified: boolean;
+    verificationStatus: VerificationStatus;
+    trustBadge?: TrustBadge | null;
+  };
+  latestMessage: Message;
+  unreadCount: number;
+}
+
 export const userTags: UserTag[] = ["employee", "employer", "customer"];
 export const pipelineStages: PipelineStage[] = ["Lead", "Quoted", "Active", "Invoiced", "Completed"];
