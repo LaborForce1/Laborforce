@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { type EmployerApplicationView, type JobApplication, type JobListing, type Message, type MessageConversation, type SocialPost, type User, type UserTag } from "@laborforce/shared";
+import { type AlertItem, type EmployerApplicationView, type JobApplication, type JobListing, type Message, type MessageConversation, type SocialPost, type User, type UserTag } from "@laborforce/shared";
 import { apiGet, apiPatch, apiPost } from "../api/client";
 
 const AUTH_STORAGE_KEY = "laborforce-web-auth";
@@ -59,6 +59,11 @@ interface SocialFeedResponse {
 
 interface SocialCreateResponse {
   post: SocialPost;
+}
+
+interface AlertsResponse {
+  unreadCount: number;
+  items: AlertItem[];
 }
 
 interface AuthFormState {
@@ -206,7 +211,7 @@ function getWorkerSpecialties(trade?: string | null) {
 }
 
 export function App() {
-  const [activeExperience, setActiveExperience] = useState<"feed" | "jobs" | "reels" | "messages" | "profile">("feed");
+  const [activeExperience, setActiveExperience] = useState<"feed" | "jobs" | "reels" | "messages" | "notifications" | "profile">("feed");
   const [selectedTag, setSelectedTag] = useState<UserTag>("employee");
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [authState, setAuthState] = useState<AuthResponse["credentials"] | null>(null);
@@ -217,6 +222,7 @@ export function App() {
   const [directoryUsers, setDirectoryUsers] = useState<User[]>([]);
   const [conversations, setConversations] = useState<MessageConversation[]>([]);
   const [threadMessages, setThreadMessages] = useState<Message[]>([]);
+  const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [socialPosts, setSocialPosts] = useState<SocialPost[]>([]);
   const [selectedRecipientId, setSelectedRecipientId] = useState<string>("");
   const [jobsRadius, setJobsRadius] = useState(50);
@@ -233,6 +239,7 @@ export function App() {
   const [updatingApplicationId, setUpdatingApplicationId] = useState<string | null>(null);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [isLoadingThread, setIsLoadingThread] = useState(false);
+  const [isLoadingAlerts, setIsLoadingAlerts] = useState(false);
   const [applyForms, setApplyForms] = useState<ApplyFormState>({});
   const [messageText, setMessageText] = useState("");
   const [isPostingSocial, setIsPostingSocial] = useState(false);
@@ -304,7 +311,7 @@ export function App() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const view = params.get("view");
-    if (view === "feed" || view === "jobs" || view === "reels" || view === "messages" || view === "profile") {
+    if (view === "feed" || view === "jobs" || view === "reels" || view === "messages" || view === "notifications" || view === "profile") {
       setActiveExperience(view);
     }
   }, []);
@@ -316,6 +323,7 @@ export function App() {
       setIncomingApplications([]);
       setDirectoryUsers([]);
       setConversations([]);
+      setAlerts([]);
       setThreadMessages([]);
       setSelectedRecipientId("");
       return;
@@ -347,6 +355,7 @@ export function App() {
 
     void loadDirectoryUsers(authState.accessToken, user.id);
     void loadConversations(authState.accessToken);
+    void loadAlerts(authState.accessToken);
   }, [authState, user?.id]);
 
   useEffect(() => {
@@ -427,6 +436,7 @@ export function App() {
   const employerActive = jobs.filter((job) => user?.userTag === "employer" && job.employerId === user.id && job.status === "active");
   const applicationMap = new Map(applications.map((application) => [application.jobListingId, application]));
   const unreadMessagesCount = conversations.reduce((total, conversation) => total + conversation.unreadCount, 0);
+  const unreadAlertsCount = alerts.filter((alert) => !alert.isRead).length;
   const reelPosts = socialPosts;
   const profilePosts = socialPosts.filter((post) => post.authorId === user?.id);
   const pinnedProfilePosts = profilePosts.slice(0, 3);
@@ -497,6 +507,19 @@ export function App() {
       setConversations(response.items);
     } catch {
       setConversations([]);
+    }
+  }
+
+  async function loadAlerts(token: string) {
+    setIsLoadingAlerts(true);
+
+    try {
+      const response = await apiGet<AlertsResponse>("/alerts", token);
+      setAlerts(response.items);
+    } catch {
+      setAlerts([]);
+    } finally {
+      setIsLoadingAlerts(false);
     }
   }
 
@@ -863,7 +886,7 @@ export function App() {
     }
   }
 
-  function switchExperience(view: "feed" | "jobs" | "reels" | "messages" | "profile") {
+  function switchExperience(view: "feed" | "jobs" | "reels" | "messages" | "notifications" | "profile") {
     setActiveExperience(view);
     const params = new URLSearchParams(window.location.search);
     params.set("view", view);
@@ -1588,6 +1611,71 @@ export function App() {
         </section>
       )}
 
+      {activeExperience === "notifications" && (
+        <section className="socialShell">
+          <div className="headerRow">
+            <div>
+              <div className="badge">Notifications</div>
+              <h2 style={{ marginTop: 10 }}>Your updates</h2>
+              <p className="muted" style={{ marginTop: 8 }}>
+                Messages, applicant activity, and account updates all show up here.
+              </p>
+            </div>
+            <div className="badge">{unreadAlertsCount} unread</div>
+          </div>
+          <div className="notificationsShell" style={{ marginTop: 18 }}>
+            <div className="notificationsRail">
+              <button className="notificationFilterButton notificationFilterActive">All</button>
+              <button className="notificationFilterButton">Messages</button>
+              <button className="notificationFilterButton">Applications</button>
+              <button className="notificationFilterButton">Network</button>
+            </div>
+            <div className="stack">
+              {isLoadingAlerts ? (
+                <div className="card"><p className="muted">Loading notifications...</p></div>
+              ) : alerts.length > 0 ? (
+                alerts.map((alert) => (
+                  <article key={alert.id} className={`notificationCard ${alert.isRead ? "" : "notificationUnread"}`}>
+                    <div className="headerRow">
+                      <div className="pillRow">
+                        <span className="pill">{alert.type}</span>
+                        {!alert.isRead && <span className="badge">New</span>}
+                      </div>
+                      <div className="muted">{formatRelativeTime(alert.createdAt)}</div>
+                    </div>
+                    <h3>{alert.title}</h3>
+                    <p className="muted">{alert.body}</p>
+                    {alert.actionLabel && (
+                      <div className="notificationActionRow">
+                        <button
+                          className="actionButton ghostButton"
+                          type="button"
+                          onClick={() => {
+                            if (alert.type === "message") {
+                              switchExperience("messages");
+                            } else if (alert.type === "application") {
+                              switchExperience("jobs");
+                            } else if (alert.type === "network") {
+                              switchExperience("profile");
+                            }
+                          }}
+                        >
+                          {alert.actionLabel}
+                        </button>
+                      </div>
+                    )}
+                  </article>
+                ))
+              ) : (
+                <div className="card">
+                  <p className="muted">No notifications yet. As people message you and interact with your jobs, updates will show up here.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
       {activeExperience === "profile" && (
         <section className="socialShell">
           <div className="headerRow">
@@ -1885,6 +1973,13 @@ export function App() {
         >
           <span className="bottomNavIcon">Chat</span>
           <span>Messages</span>
+        </button>
+        <button
+          className={`bottomNavButton ${activeExperience === "notifications" ? "bottomNavActive" : ""}`}
+          onClick={() => switchExperience("notifications")}
+        >
+          <span className="bottomNavIcon">Bell</span>
+          <span>Alerts</span>
         </button>
         <button
           className={`bottomNavButton ${activeExperience === "profile" ? "bottomNavActive" : ""}`}

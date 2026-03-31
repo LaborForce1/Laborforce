@@ -178,5 +178,15 @@ export interface MessageConversation {
   unreadCount: number;
 }
 
+export interface AlertItem {
+  id: string;
+  type: "message" | "application" | "network" | "system";
+  title: string;
+  body: string;
+  createdAt: string;
+  isRead: boolean;
+  actionLabel?: string | null;
+}
+
 export const userTags: UserTag[] = ["employee", "employer", "customer"];
 export const pipelineStages: PipelineStage[] = ["Lead", "Quoted", "Active", "Invoiced", "Completed"];

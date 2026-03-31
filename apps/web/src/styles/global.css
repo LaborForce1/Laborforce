@@ -451,6 +451,58 @@ textarea:focus {
   align-items: start;
 }
 
+.notificationsShell {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: 220px minmax(0, 1fr);
+  align-items: start;
+}
+
+.notificationsRail {
+  display: grid;
+  gap: 10px;
+  align-self: start;
+  position: sticky;
+  top: 24px;
+}
+
+.notificationFilterButton {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #ffffff;
+  color: var(--text);
+  padding: 12px 14px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.notificationFilterActive {
+  background: linear-gradient(135deg, #1f6fd1, #3f5f86);
+  color: #ffffff;
+  border-color: transparent;
+}
+
+.notificationCard {
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background: #ffffff;
+  padding: 20px;
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 12px;
+}
+
+.notificationUnread {
+  border-color: #9fc3ee;
+  box-shadow: 0 16px 36px rgba(31, 111, 209, 0.12);
+}
+
+.notificationActionRow {
+  display: flex;
+  justify-content: flex-start;
+}
+
 .profileLayout {
   display: grid;
   gap: 24px;
@@ -698,7 +750,7 @@ textarea:focus {
   transform: translateX(-50%);
   width: min(720px, calc(100% - 24px));
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 10px;
   padding: 10px;
   border-radius: 24px;
@@ -811,6 +863,7 @@ img {
   .jobsPageLayout,
   .reelsShell,
   .messagesShell,
+  .notificationsShell,
   .profileLayout,
   .socialLayout,
   .reelsGrid,
@@ -825,6 +878,10 @@ img {
   .bottomNav {
     width: calc(100% - 16px);
     bottom: 10px;
+  }
+
+  .notificationsRail {
+    position: static;
   }
 
   .profileHeroTop,
