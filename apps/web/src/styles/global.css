@@ -35,20 +35,21 @@ textarea {
 }
 
 .shell {
-  max-width: 1280px;
+  max-width: 1380px;
   margin: 0 auto;
-  padding: 24px 28px 48px;
+  padding: 24px 28px 48px 156px;
 }
 
 .appTopNav {
-  position: sticky;
-  top: 16px;
+  position: fixed;
+  left: 24px;
+  top: 24px;
+  width: 108px;
   z-index: 50;
-  margin-bottom: 28px;
-  display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
-  gap: 10px;
-  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
   border-radius: 24px;
   border: 1px solid rgba(214, 226, 238, 0.95);
   background: rgba(255, 255, 255, 0.94);
@@ -58,15 +59,16 @@ textarea {
 
 .appTopNavButton {
   border: 0;
-  border-radius: 18px;
+  border-radius: 16px;
   background: transparent;
   color: var(--muted);
-  padding: 12px 10px;
+  padding: 10px 8px;
   display: grid;
-  gap: 4px;
+  gap: 3px;
   justify-items: center;
   cursor: pointer;
   font-weight: 700;
+  font-size: 0.84rem;
 }
 
 .appTopNavActive {
@@ -76,7 +78,7 @@ textarea {
 }
 
 .appTopNavIcon {
-  font-size: 0.82rem;
+  font-size: 0.72rem;
   letter-spacing: 0.02em;
   text-transform: uppercase;
 }
@@ -1091,8 +1093,24 @@ img {
   }
 
   .appTopNav {
+    position: sticky;
+    left: auto;
     top: 10px;
+    width: auto;
+    margin-bottom: 28px;
+    display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .appTopNavButton {
+    padding: 12px 10px;
+    font-size: 0.9rem;
+  }
+
+  .appTopNavIcon {
+    font-size: 0.82rem;
   }
 
   .notificationsRail {
