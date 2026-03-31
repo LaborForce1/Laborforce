@@ -1,17 +1,17 @@
 :root {
   color-scheme: light;
-  --bg: #eef4fb;
+  --bg: #f3ede3;
   --panel: rgba(255, 255, 255, 0.96);
   --panel-strong: #ffffff;
-  --text: #17263b;
-  --muted: #62748a;
-  --line: #d7e2ee;
-  --accent: #1f6fd1;
-  --accent-2: #3f5f86;
-  --accent-soft: #eaf3ff;
-  --success: #198754;
-  --danger: #c9372c;
-  --shadow: 0 16px 40px rgba(28, 57, 92, 0.12);
+  --text: #2f261d;
+  --muted: #736458;
+  --line: #dfd2c2;
+  --accent: #b8642c;
+  --accent-2: #5f4b3c;
+  --accent-soft: #f7e8d8;
+  --success: #2f7d4f;
+  --danger: #b54835;
+  --shadow: 0 16px 40px rgba(83, 59, 39, 0.14);
   font-family: "Avenir Next", "Segoe UI", sans-serif;
 }
 
@@ -23,7 +23,7 @@ body {
   margin: 0;
   min-height: 100vh;
   background:
-    linear-gradient(180deg, #f9fbff 0%, #eef4fb 36%, #edf3f9 100%);
+    linear-gradient(180deg, #fbf7f1 0%, #f3ede3 36%, #eee4d7 100%);
   color: var(--text);
 }
 
@@ -72,7 +72,7 @@ textarea {
 }
 
 .appTopNavActive {
-  background: linear-gradient(135deg, #1f6fd1, #3f5f86);
+  background: linear-gradient(135deg, #b8642c, #5f4b3c);
   color: #ffffff;
   box-shadow: 0 12px 24px rgba(28, 57, 92, 0.18);
 }
@@ -89,7 +89,7 @@ textarea {
   padding: 40px;
   border: 1px solid #d8e3ef;
   background:
-    linear-gradient(125deg, rgba(31, 111, 209, 0.16), rgba(255, 255, 255, 0.98) 42%, rgba(63, 95, 134, 0.14) 100%);
+    linear-gradient(125deg, rgba(184, 100, 44, 0.16), rgba(255, 255, 255, 0.98) 42%, rgba(95, 75, 60, 0.14) 100%);
   border-radius: 28px;
   box-shadow: 0 24px 60px rgba(28, 57, 92, 0.12);
 }
@@ -160,7 +160,7 @@ textarea {
 .jobsHero {
   border-radius: 24px;
   border: 1px solid var(--line);
-  background: linear-gradient(125deg, rgba(31, 111, 209, 0.12), rgba(255, 255, 255, 0.98) 42%, rgba(63, 95, 134, 0.1) 100%);
+  background: linear-gradient(125deg, rgba(184, 100, 44, 0.12), rgba(255, 255, 255, 0.98) 42%, rgba(95, 75, 60, 0.1) 100%);
   padding: 24px;
   box-shadow: var(--shadow);
 }
@@ -205,7 +205,7 @@ textarea {
 
 .miniNavActive {
   border-color: transparent;
-  background: linear-gradient(135deg, #1f6fd1, #3f5f86);
+  background: linear-gradient(135deg, #b8642c, #5f4b3c);
   color: #ffffff;
 }
 
@@ -263,15 +263,15 @@ input:focus,
 select:focus,
 textarea:focus {
   outline: none;
-  border-color: #74a8e8;
-  box-shadow: 0 0 0 4px rgba(31, 111, 209, 0.12);
+  border-color: #d18c57;
+  box-shadow: 0 0 0 4px rgba(184, 100, 44, 0.12);
 }
 
 .actionButton {
   border: 0;
   border-radius: 14px;
   padding: 12px 16px;
-  background: linear-gradient(135deg, #1f6fd1, #3f5f86);
+  background: linear-gradient(135deg, #b8642c, #5f4b3c);
   color: #ffffff;
   font-weight: 700;
   cursor: pointer;
@@ -354,14 +354,14 @@ textarea:focus {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #4a88d6;
-  box-shadow: 0 0 0 0 rgba(74, 136, 214, 0.45);
+  background: #c57940;
+  box-shadow: 0 0 0 0 rgba(197, 121, 64, 0.45);
   animation: pulse 1.5s infinite;
 }
 
 @keyframes pulse {
-  0% { box-shadow: 0 0 0 0 rgba(74, 136, 214, 0.35); }
-  70% { box-shadow: 0 0 0 14px rgba(74, 136, 214, 0); }
+  0% { box-shadow: 0 0 0 0 rgba(197, 121, 64, 0.35); }
+  70% { box-shadow: 0 0 0 14px rgba(197, 121, 64, 0); }
   100% { box-shadow: 0 0 0 0 rgba(255, 123, 49, 0); }
 }
 
@@ -374,9 +374,9 @@ textarea:focus {
 .pill {
   padding: 8px 12px;
   border-radius: 999px;
-  background: #eef5fc;
-  color: #2f5f8e;
-  border: 1px solid #d7e6f6;
+  background: #f6ece0;
+  color: #7a5335;
+  border: 1px solid #e9d4bf;
 }
 
 .betaItem {
@@ -551,7 +551,7 @@ textarea:focus {
 }
 
 .networkTabActive {
-  background: linear-gradient(135deg, #1f6fd1, #3f5f86);
+  background: linear-gradient(135deg, #b8642c, #5f4b3c);
   color: #ffffff;
   border-color: transparent;
 }
@@ -614,7 +614,7 @@ textarea:focus {
 
 .networkCardBanner {
   height: 78px;
-  background: linear-gradient(135deg, #1f6fd1 0%, #3f5f86 48%, #88b5e8 100%);
+  background: linear-gradient(135deg, #b8642c 0%, #5f4b3c 48%, #d6a170 100%);
 }
 
 .networkAvatar {
@@ -626,7 +626,7 @@ textarea:focus {
   place-items: center;
   margin: -38px auto 0;
   border: 4px solid #ffffff;
-  background: linear-gradient(135deg, #1f6fd1, #3f5f86);
+  background: linear-gradient(135deg, #b8642c, #5f4b3c);
   color: #ffffff;
   font-weight: 800;
   font-size: 1.5rem;
@@ -663,7 +663,7 @@ textarea:focus {
 .networkToolsSidebar {
   padding: 22px;
   border-right: 1px solid var(--line);
-  background: linear-gradient(180deg, #f8fbff, #f2f7fc);
+  background: linear-gradient(180deg, #f9f2e8, #f3e7d8);
   display: grid;
   gap: 22px;
 }
@@ -736,7 +736,7 @@ textarea:focus {
 }
 
 .notificationFilterActive {
-  background: linear-gradient(135deg, #1f6fd1, #3f5f86);
+  background: linear-gradient(135deg, #b8642c, #5f4b3c);
   color: #ffffff;
   border-color: transparent;
 }
@@ -752,8 +752,8 @@ textarea:focus {
 }
 
 .notificationUnread {
-  border-color: #9fc3ee;
-  box-shadow: 0 16px 36px rgba(31, 111, 209, 0.12);
+  border-color: #e0b086;
+  box-shadow: 0 16px 36px rgba(184, 100, 44, 0.12);
 }
 
 .notificationActionRow {
@@ -782,7 +782,7 @@ textarea:focus {
   margin: -24px -24px 18px;
   background:
     radial-gradient(circle at top left, rgba(255, 255, 255, 0.28), transparent 38%),
-    linear-gradient(135deg, #1f6fd1 0%, #3f5f86 48%, #88b5e8 100%);
+    linear-gradient(135deg, #b8642c 0%, #5f4b3c 48%, #d6a170 100%);
 }
 
 .profileHeroTop {
@@ -800,7 +800,7 @@ textarea:focus {
   overflow: hidden;
   display: grid;
   place-items: center;
-  background: linear-gradient(135deg, #1f6fd1, #3f5f86);
+  background: linear-gradient(135deg, #b8642c, #5f4b3c);
   color: #ffffff;
   font-size: 2rem;
   font-weight: 800;
@@ -944,7 +944,7 @@ textarea:focus {
 .proofPlaceholder {
   display: grid;
   place-items: center;
-  background: linear-gradient(135deg, #1f6fd1, #3f5f86);
+  background: linear-gradient(135deg, #b8642c, #5f4b3c);
   color: #ffffff;
   font-weight: 800;
 }
