@@ -38,6 +38,18 @@ export interface CreateUserInput {
   tradeType?: string;
 }
 
+export interface UpdateProfileInput {
+  fullName: string;
+  tradeType?: string | null;
+  businessName?: string | null;
+  bio?: string | null;
+  yearsExperience?: number | null;
+  hourlyRate?: number | null;
+  unionStatus?: string | null;
+  openToWork: boolean;
+  profilePhotoUrl?: string | null;
+}
+
 function toNullableNumber(value: string | null): number | null {
   return value === null ? null : Number(value);
 }
@@ -171,6 +183,65 @@ export const usersRepository = {
   async list() {
     const result = await query<UserRow>(`${baseSelect} ORDER BY created_at DESC LIMIT 100`);
     return result.rows.map(mapUser);
+  },
+
+  async updateProfile(id: string, input: UpdateProfileInput) {
+    const result = await query<UserRow>(
+      `
+        UPDATE users
+        SET
+          full_name = $2,
+          trade_type = $3,
+          business_name = $4,
+          bio = $5,
+          years_experience = $6,
+          hourly_rate = $7,
+          union_status = $8,
+          open_to_work = $9,
+          profile_photo_url = $10,
+          updated_at = NOW()
+        WHERE id = $1
+        RETURNING
+          id,
+          email,
+          password_hash,
+          full_name,
+          phone,
+          zip_code,
+          user_tag,
+          trade_type,
+          is_verified,
+          is_premium,
+          verification_status,
+          profile_photo_url,
+          bio,
+          years_experience,
+          hourly_rate,
+          open_to_work,
+          rating_average,
+          rating_count,
+          trust_badge,
+          union_status,
+          latitude,
+          longitude,
+          is_business_verified,
+          business_name
+      `,
+      [
+        id,
+        input.fullName,
+        input.tradeType ?? null,
+        input.businessName ?? null,
+        input.bio ?? null,
+        input.yearsExperience ?? null,
+        input.hourlyRate ?? null,
+        input.unionStatus ?? null,
+        input.openToWork,
+        input.profilePhotoUrl ?? null
+      ]
+    );
+
+    const row = result.rows[0];
+    return row ? mapUser(row) : null;
   }
 };
-

@@ -92,6 +92,18 @@ interface SocialFormState {
   videoUrl: string;
 }
 
+interface ProfileFormState {
+  fullName: string;
+  tradeType: string;
+  businessName: string;
+  bio: string;
+  yearsExperience: string;
+  hourlyRate: string;
+  unionStatus: string;
+  profilePhotoUrl: string;
+  openToWork: boolean;
+}
+
 interface MockReel {
   id: string;
   trade: string;
@@ -168,7 +180,7 @@ function formatRelativeTime(value: string) {
 }
 
 export function App() {
-  const [activeExperience, setActiveExperience] = useState<"feed" | "jobs" | "reels" | "messages">("feed");
+  const [activeExperience, setActiveExperience] = useState<"feed" | "jobs" | "reels" | "messages" | "profile">("feed");
   const [selectedTag, setSelectedTag] = useState<UserTag>("employee");
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [authState, setAuthState] = useState<AuthResponse["credentials"] | null>(null);
@@ -198,6 +210,7 @@ export function App() {
   const [applyForms, setApplyForms] = useState<ApplyFormState>({});
   const [messageText, setMessageText] = useState("");
   const [isPostingSocial, setIsPostingSocial] = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [authForm, setAuthForm] = useState<AuthFormState>({
     fullName: "",
     email: "",
@@ -221,6 +234,17 @@ export function App() {
     postText: "",
     photoUrl: "",
     videoUrl: ""
+  });
+  const [profileForm, setProfileForm] = useState<ProfileFormState>({
+    fullName: "",
+    tradeType: "",
+    businessName: "",
+    bio: "",
+    yearsExperience: "",
+    hourlyRate: "",
+    unionStatus: "",
+    profilePhotoUrl: "",
+    openToWork: false
   });
 
   useEffect(() => {
@@ -254,7 +278,7 @@ export function App() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const view = params.get("view");
-    if (view === "feed" || view === "jobs" || view === "reels" || view === "messages") {
+    if (view === "feed" || view === "jobs" || view === "reels" || view === "messages" || view === "profile") {
       setActiveExperience(view);
     }
   }, []);
@@ -298,6 +322,24 @@ export function App() {
     void loadDirectoryUsers(authState.accessToken, user.id);
     void loadConversations(authState.accessToken);
   }, [authState, user?.id]);
+
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    setProfileForm({
+      fullName: user.fullName ?? "",
+      tradeType: user.tradeType ?? "",
+      businessName: user.businessName ?? "",
+      bio: user.bio ?? "",
+      yearsExperience: user.yearsExperience?.toString() ?? "",
+      hourlyRate: user.hourlyRate?.toString() ?? "",
+      unionStatus: user.unionStatus ?? "",
+      profilePhotoUrl: user.profilePhotoUrl ?? "",
+      openToWork: user.openToWork
+    });
+  }, [user]);
 
   useEffect(() => {
     if (!authState?.accessToken || !selectedRecipientId) {
@@ -360,6 +402,7 @@ export function App() {
   const applicationMap = new Map(applications.map((application) => [application.jobListingId, application]));
   const unreadMessagesCount = conversations.reduce((total, conversation) => total + conversation.unreadCount, 0);
   const reelPosts = socialPosts;
+  const profilePosts = socialPosts.filter((post) => post.authorId === user?.id);
 
   async function loadJobs() {
     setIsLoadingJobs(true);
@@ -755,7 +798,44 @@ export function App() {
     }
   }
 
-  function switchExperience(view: "feed" | "jobs" | "reels" | "messages") {
+  async function handleSaveProfile(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!authState?.accessToken || !user) {
+      setErrorMessage("Log in before editing your profile.");
+      return;
+    }
+
+    setIsSavingProfile(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    try {
+      const response = await apiPatch<{ user: User; message: string }>(
+        "/users/me",
+        {
+          fullName: profileForm.fullName.trim(),
+          tradeType: profileForm.tradeType.trim() || null,
+          businessName: profileForm.businessName.trim() || null,
+          bio: profileForm.bio.trim() || null,
+          yearsExperience: profileForm.yearsExperience ? Number(profileForm.yearsExperience) : null,
+          hourlyRate: profileForm.hourlyRate ? Number(profileForm.hourlyRate) : null,
+          unionStatus: profileForm.unionStatus.trim() || null,
+          profilePhotoUrl: profileForm.profilePhotoUrl.trim() || null,
+          openToWork: profileForm.openToWork
+        },
+        authState.accessToken
+      );
+
+      setUser(response.user);
+      setSuccessMessage(response.message);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Unable to update profile.");
+    } finally {
+      setIsSavingProfile(false);
+    }
+  }
+
+  function switchExperience(view: "feed" | "jobs" | "reels" | "messages" | "profile") {
     setActiveExperience(view);
     const params = new URLSearchParams(window.location.search);
     params.set("view", view);
@@ -1472,6 +1552,159 @@ export function App() {
         </section>
       )}
 
+      {activeExperience === "profile" && (
+        <section className="socialShell">
+          <div className="headerRow">
+            <div>
+              <div className="badge">Profile page</div>
+              <h2 style={{ marginTop: 10 }}>Your profile</h2>
+              <p className="muted" style={{ marginTop: 8 }}>
+                Show people what you do, what kind of work you take on, and the proof behind it.
+              </p>
+            </div>
+          </div>
+          {user ? (
+            <div className="profileLayout" style={{ marginTop: 18 }}>
+              <div className="stack">
+                <div className="profileHeroCard">
+                  <div className="profileHeroTop">
+                    <div className="profileAvatar">
+                      {user.profilePhotoUrl ? (
+                        <img className="profileAvatarImage" src={user.profilePhotoUrl} alt={user.fullName} />
+                      ) : (
+                        <span>{user.fullName.slice(0, 1)}</span>
+                      )}
+                    </div>
+                    <div className="stack" style={{ gap: 8 }}>
+                      <h2>{user.fullName}</h2>
+                      <div className="muted">
+                        {user.tradeType ?? user.businessName ?? user.userTag}
+                      </div>
+                      <div className="pillRow">
+                        <span className="pill">{user.trustBadge ?? user.verificationStatus}</span>
+                        <span className="pill">{user.userTag}</span>
+                        {user.openToWork && <span className="pill">Open to work</span>}
+                        {user.unionStatus && <span className="pill">{user.unionStatus}</span>}
+                      </div>
+                    </div>
+                  </div>
+                  <p className="profileBio">
+                    {user.bio?.trim() || "Add a bio so people know what kind of work you do and what makes you different."}
+                  </p>
+                  <div className="profileStats">
+                    <div className="profileStat">
+                      <strong>{profilePosts.length}</strong>
+                      <span>Posts</span>
+                    </div>
+                    <div className="profileStat">
+                      <strong>{user.ratingAverage.toFixed(1)}</strong>
+                      <span>Rating</span>
+                    </div>
+                    <div className="profileStat">
+                      <strong>{user.yearsExperience ?? 0}</strong>
+                      <span>Years</span>
+                    </div>
+                    <div className="profileStat">
+                      <strong>{user.hourlyRate ? formatMoney(user.hourlyRate) : "-"}</strong>
+                      <span>Rate</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="card">
+                  <div className="headerRow">
+                    <h3>Proof Wall</h3>
+                    <div className="badge">{profilePosts.length} posts</div>
+                  </div>
+                  {profilePosts.length > 0 ? (
+                    <div className="proofGrid" style={{ marginTop: 14 }}>
+                      {profilePosts.map((post) => (
+                        <article key={post.id} className="proofCard">
+                          {post.photoUrls[0] ? (
+                            <img className="proofImage" src={post.photoUrls[0]} alt={post.tradeTag} />
+                          ) : (
+                            <div className="proofPlaceholder">{post.tradeTag}</div>
+                          )}
+                          <div className="proofCopy">
+                            <strong>{post.tradeTag}</strong>
+                            <div className="muted">{formatRelativeTime(post.createdAt)} • {post.locationDisplay}</div>
+                            <p>{post.postText}</p>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="muted" style={{ marginTop: 12 }}>
+                      Your feed posts will also build out your proof wall here.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="stack">
+                <form className="card" onSubmit={handleSaveProfile}>
+                  <div className="headerRow">
+                    <h3>Edit profile</h3>
+                    <div className="badge">Live profile</div>
+                  </div>
+                  <div className="stack" style={{ marginTop: 12 }}>
+                    <label className="field">
+                      <span>Full name</span>
+                      <input value={profileForm.fullName} onChange={(event) => setProfileForm((current) => ({ ...current, fullName: event.target.value }))} required />
+                    </label>
+                    <label className="field">
+                      <span>Trade</span>
+                      <input value={profileForm.tradeType} onChange={(event) => setProfileForm((current) => ({ ...current, tradeType: event.target.value }))} placeholder="Electrician, HVAC, Plumbing" />
+                    </label>
+                    <label className="field">
+                      <span>Business name</span>
+                      <input value={profileForm.businessName} onChange={(event) => setProfileForm((current) => ({ ...current, businessName: event.target.value }))} placeholder="Company or crew name" />
+                    </label>
+                    <label className="field">
+                      <span>Profile photo URL</span>
+                      <input value={profileForm.profilePhotoUrl} onChange={(event) => setProfileForm((current) => ({ ...current, profilePhotoUrl: event.target.value }))} placeholder="https://..." />
+                    </label>
+                    <label className="field">
+                      <span>Bio</span>
+                      <textarea rows={4} value={profileForm.bio} onChange={(event) => setProfileForm((current) => ({ ...current, bio: event.target.value }))} placeholder="Tell people what you do, who you work with, and what kind of jobs you take on." />
+                    </label>
+                    <div className="splitFields">
+                      <label className="field">
+                        <span>Years experience</span>
+                        <input type="number" value={profileForm.yearsExperience} onChange={(event) => setProfileForm((current) => ({ ...current, yearsExperience: event.target.value }))} />
+                      </label>
+                      <label className="field">
+                        <span>Hourly rate</span>
+                        <input type="number" value={profileForm.hourlyRate} onChange={(event) => setProfileForm((current) => ({ ...current, hourlyRate: event.target.value }))} />
+                      </label>
+                    </div>
+                    <label className="field">
+                      <span>Union or affiliation</span>
+                      <input value={profileForm.unionStatus} onChange={(event) => setProfileForm((current) => ({ ...current, unionStatus: event.target.value }))} placeholder="IBEW, UA, non-union, etc." />
+                    </label>
+                    <label className="profileToggle">
+                      <input
+                        type="checkbox"
+                        checked={profileForm.openToWork}
+                        onChange={(event) => setProfileForm((current) => ({ ...current, openToWork: event.target.checked }))}
+                      />
+                      <span>Open to work</span>
+                    </label>
+                    <button className="actionButton" type="submit" disabled={isSavingProfile}>
+                      {isSavingProfile ? "Saving..." : "Save profile"}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          ) : (
+            <div className="card" style={{ marginTop: 18 }}>
+              <p className="muted">Log in first to build out your profile.</p>
+            </div>
+          )}
+        </section>
+      )}
+
       <nav className="bottomNav">
         <button
           className={`bottomNavButton ${activeExperience === "feed" ? "bottomNavActive" : ""}`}
@@ -1500,6 +1733,13 @@ export function App() {
         >
           <span className="bottomNavIcon">Chat</span>
           <span>Messages</span>
+        </button>
+        <button
+          className={`bottomNavButton ${activeExperience === "profile" ? "bottomNavActive" : ""}`}
+          onClick={() => switchExperience("profile")}
+        >
+          <span className="bottomNavIcon">You</span>
+          <span>Profile</span>
         </button>
       </nav>
     </div>
