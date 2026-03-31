@@ -46,7 +46,7 @@ textarea {
   z-index: 50;
   margin-bottom: 28px;
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(8, minmax(0, 1fr));
   gap: 10px;
   padding: 10px;
   border-radius: 24px;
@@ -1050,7 +1050,7 @@ img {
 
   .appTopNav {
     top: 10px;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   .notificationsRail {

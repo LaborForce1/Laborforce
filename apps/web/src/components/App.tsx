@@ -211,7 +211,7 @@ function getWorkerSpecialties(trade?: string | null) {
 }
 
 export function App() {
-  const [activeExperience, setActiveExperience] = useState<"feed" | "network" | "jobs" | "reels" | "messages" | "notifications" | "profile">("feed");
+  const [activeExperience, setActiveExperience] = useState<"feed" | "network" | "jobs" | "reels" | "messages" | "notifications" | "profile" | "auth">("feed");
   const [selectedTag, setSelectedTag] = useState<UserTag>("employee");
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [authState, setAuthState] = useState<AuthResponse["credentials"] | null>(null);
@@ -311,7 +311,7 @@ export function App() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const view = params.get("view");
-    if (view === "feed" || view === "network" || view === "jobs" || view === "reels" || view === "messages" || view === "notifications" || view === "profile") {
+    if (view === "feed" || view === "network" || view === "jobs" || view === "reels" || view === "messages" || view === "notifications" || view === "profile" || view === "auth") {
       setActiveExperience(view);
     }
   }, []);
@@ -583,6 +583,7 @@ export function App() {
           ? "Account created. Verification is pending until Persona is connected."
           : "Signed in successfully."
       );
+      switchExperience("profile");
       setAuthForm((current) => ({ ...current, password: "" }));
       await loadJobs();
       if (response.user.userTag === "employee") {
@@ -889,7 +890,7 @@ export function App() {
     }
   }
 
-  function switchExperience(view: "feed" | "network" | "jobs" | "reels" | "messages" | "notifications" | "profile") {
+  function switchExperience(view: "feed" | "network" | "jobs" | "reels" | "messages" | "notifications" | "profile" | "auth") {
     setActiveExperience(view);
     const params = new URLSearchParams(window.location.search);
     params.set("view", view);
@@ -950,6 +951,13 @@ export function App() {
           <span>Alerts</span>
         </button>
         <button
+          className={`appTopNavButton ${activeExperience === "auth" ? "appTopNavActive" : ""}`}
+          onClick={() => switchExperience("auth")}
+        >
+          <span className="appTopNavIcon">{user ? "Acct" : "Login"}</span>
+          <span>{user ? "Account" : "Login"}</span>
+        </button>
+        <button
           className={`appTopNavButton ${activeExperience === "profile" ? "appTopNavActive" : ""}`}
           onClick={() => switchExperience("profile")}
         >
@@ -957,6 +965,158 @@ export function App() {
           <span>Profile</span>
         </button>
       </nav>
+
+      {activeExperience === "auth" && (
+        <>
+          <section className="jobsHero">
+            <div className="headerRow">
+              <div>
+                <div className="badge">Login</div>
+                <h2 style={{ marginTop: 10 }}>{user ? "Your account" : "Login or create your account"}</h2>
+                <p className="muted" style={{ marginTop: 8 }}>
+                  Sign in here first, then jump straight into your profile, messages, jobs, and network.
+                </p>
+              </div>
+              <div className="pillRow">
+                {user && <span className="pill">{user.fullName}</span>}
+                {user && <span className="pill">{user.userTag}</span>}
+                {user && <span className="pill">{user.verificationStatus}</span>}
+              </div>
+            </div>
+          </section>
+
+          <section style={{ marginTop: 28 }} className="feedPageLayout">
+            <div className="stack roomyStack">
+              <div className="card">
+                <div className="headerRow">
+                  <h2>{user ? "Signed in" : "Welcome back"}</h2>
+                  {!user && (
+                    <div className="pillRow">
+                      <button className={`actionButton ${mode === "login" ? "" : "ghostButton"}`} onClick={() => setMode("login")}>
+                        Login
+                      </button>
+                      <button className={`actionButton ${mode === "signup" ? "" : "ghostButton"}`} onClick={() => setMode("signup")}>
+                        Signup
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {errorMessage && <div className="notice errorNotice">{errorMessage}</div>}
+                {successMessage && <div className="notice successNotice">{successMessage}</div>}
+
+                {user ? (
+                  <div className="stack">
+                    <div className="badge">Authenticated</div>
+                    <strong>{user.fullName}</strong>
+                    <div className="muted">{user.email}</div>
+                    <div className="pillRow">
+                      <span className="pill">{user.userTag}</span>
+                      <span className="pill">{user.verificationStatus}</span>
+                      {user.tradeType && <span className="pill">{user.tradeType}</span>}
+                      {user.businessName && <span className="pill">{user.businessName}</span>}
+                    </div>
+                    <div className="pillRow">
+                      <button className="actionButton" onClick={() => switchExperience("profile")}>
+                        Open profile
+                      </button>
+                      <button className="actionButton ghostButton" onClick={() => switchExperience("messages")}>
+                        Open messages
+                      </button>
+                      <button className="actionButton ghostButton" onClick={signOut}>
+                        Sign out
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <form className="stack" onSubmit={handleAuthSubmit}>
+                    {mode === "signup" && (
+                      <label className="field">
+                        <span>Full name</span>
+                        <input
+                          value={authForm.fullName}
+                          onChange={(event) => setAuthForm({ ...authForm, fullName: event.target.value })}
+                          required
+                        />
+                      </label>
+                    )}
+                    <label className="field">
+                      <span>Email</span>
+                      <input
+                        type="email"
+                        value={authForm.email}
+                        onChange={(event) => setAuthForm({ ...authForm, email: event.target.value })}
+                        required
+                      />
+                    </label>
+                    {mode === "signup" && (
+                      <>
+                        <label className="field">
+                          <span>Phone</span>
+                          <input
+                            value={authForm.phone}
+                            onChange={(event) => setAuthForm({ ...authForm, phone: event.target.value })}
+                            required
+                          />
+                        </label>
+                        <label className="field">
+                          <span>ZIP code</span>
+                          <input
+                            value={authForm.zipCode}
+                            onChange={(event) => setAuthForm({ ...authForm, zipCode: event.target.value })}
+                            required
+                          />
+                        </label>
+                        {selectedTag === "employee" && (
+                          <label className="field">
+                            <span>Trade type</span>
+                            <input
+                              value={authForm.tradeType}
+                              onChange={(event) => setAuthForm({ ...authForm, tradeType: event.target.value })}
+                              placeholder="Electrician, HVAC, Plumbing"
+                            />
+                          </label>
+                        )}
+                      </>
+                    )}
+                    <label className="field">
+                      <span>Password</span>
+                      <input
+                        type="password"
+                        value={authForm.password}
+                        onChange={(event) => setAuthForm({ ...authForm, password: event.target.value })}
+                        required
+                      />
+                    </label>
+                    <button className="actionButton" disabled={isSubmittingAuth || isBooting} type="submit">
+                      {isSubmittingAuth ? "Submitting..." : mode === "signup" ? "Create account" : "Login"}
+                    </button>
+                  </form>
+                )}
+              </div>
+            </div>
+
+            <div className="stack sideRail">
+              <div className="card">
+                <h3>Demo login</h3>
+                <div className="stack" style={{ marginTop: 12 }}>
+                  <div className="muted">Employer</div>
+                  <div className="pill">dispatch@northsidehvac.com</div>
+                  <div className="muted">Worker</div>
+                  <div className="pill">maria@laborforce.app</div>
+                  <div className="pill">Password: LaborForce123!</div>
+                </div>
+              </div>
+              <div className="card">
+                <h3>What you unlock</h3>
+                <p className="muted">
+                  Your profile, reels, messages, job applications, notifications, and network all open up after login.
+                </p>
+              </div>
+            </div>
+          </section>
+        </>
+      )}
 
       {activeExperience === "feed" && (
         <>
@@ -1134,12 +1294,26 @@ export function App() {
           <div className="headerRow">
             <h2>{user ? "Account" : "Sign in or create account"}</h2>
             <div className="pillRow">
-              <button className={`actionButton ${mode === "login" ? "" : "ghostButton"}`} onClick={() => setMode("login")}>
-                Login
-              </button>
-              <button className={`actionButton ${mode === "signup" ? "" : "ghostButton"}`} onClick={() => setMode("signup")}>
-                Signup
-              </button>
+              {!user && (
+                <button className="actionButton" onClick={() => switchExperience("auth")}>
+                  Open login tab
+                </button>
+              )}
+              {user && (
+                <button className="actionButton ghostButton" onClick={() => switchExperience("profile")}>
+                  Open profile
+                </button>
+              )}
+              {user && (
+                <button className="actionButton ghostButton" onClick={signOut}>
+                  Sign out
+                </button>
+              )}
+              {!user && (
+                <button className="actionButton ghostButton" onClick={() => setMode("signup")}>
+                  Setup for signup
+                </button>
+              )}
             </div>
           </div>
 
@@ -1181,72 +1355,13 @@ export function App() {
               )}
             </div>
           ) : (
-            <form className="stack" onSubmit={handleAuthSubmit}>
-              {mode === "signup" && (
-                <label className="field">
-                  <span>Full name</span>
-                  <input
-                    value={authForm.fullName}
-                    onChange={(event) => setAuthForm({ ...authForm, fullName: event.target.value })}
-                    required
-                  />
-                </label>
-              )}
-              <label className="field">
-                <span>Email</span>
-                <input
-                  type="email"
-                  value={authForm.email}
-                  onChange={(event) => setAuthForm({ ...authForm, email: event.target.value })}
-                  required
-                />
-              </label>
-              {mode === "signup" && (
-                <>
-                  <label className="field">
-                    <span>Phone</span>
-                    <input
-                      value={authForm.phone}
-                      onChange={(event) => setAuthForm({ ...authForm, phone: event.target.value })}
-                      required
-                    />
-                  </label>
-                  <label className="field">
-                    <span>ZIP code</span>
-                    <input
-                      value={authForm.zipCode}
-                      onChange={(event) => setAuthForm({ ...authForm, zipCode: event.target.value })}
-                      required
-                    />
-                  </label>
-                  {selectedTag === "employee" && (
-                    <label className="field">
-                      <span>Trade type</span>
-                      <input
-                        value={authForm.tradeType}
-                        onChange={(event) => setAuthForm({ ...authForm, tradeType: event.target.value })}
-                        placeholder="Electrician, HVAC, Plumbing"
-                      />
-                    </label>
-                  )}
-                </>
-              )}
-              <label className="field">
-                <span>Password</span>
-                <input
-                  type="password"
-                  value={authForm.password}
-                  onChange={(event) => setAuthForm({ ...authForm, password: event.target.value })}
-                  required
-                />
-              </label>
-              <button className="actionButton" disabled={isSubmittingAuth || isBooting} type="submit">
-                {isSubmittingAuth ? "Submitting..." : mode === "signup" ? "Create account" : "Login"}
+            <div className="stack">
+              <div className="muted">Login lives in its own tab now so it is easier to find.</div>
+              <button className="actionButton" onClick={() => switchExperience("auth")}>
+                Go to login tab
               </button>
-              <div className="muted">
-                Demo employer login: `dispatch@northsidehvac.com` / `LaborForce123!`
-              </div>
-            </form>
+              <div className="muted">Demo employer: dispatch@northsidehvac.com / LaborForce123!</div>
+            </div>
           )}
         </div>
 
