@@ -394,6 +394,15 @@ textarea:focus {
   inset: 0;
 }
 
+.reelVideo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  position: absolute;
+  inset: 0;
+  background: #09111c;
+}
+
 .reelOverlay {
   position: relative;
   z-index: 1;

@@ -110,6 +110,7 @@ interface MockReel {
   title: string;
   description: string;
   imageUrl: string;
+  videoUrl: string;
 }
 
 const mockReels: MockReel[] = [
@@ -118,42 +119,48 @@ const mockReels: MockReel[] = [
     trade: "HVAC",
     title: "What HVAC Techs Actually Do",
     description: "Install systems, troubleshoot airflow, handle refrigerant, and keep homes and buildings comfortable year-round.",
-    imageUrl: "https://images.unsplash.com/photo-1621905252507-b35492cc74b4?auto=format&fit=crop&w=900&q=80"
+    imageUrl: "https://images.unsplash.com/photo-1621905252507-b35492cc74b4?auto=format&fit=crop&w=900&q=80",
+    videoUrl: "https://samplelib.com/lib/preview/mp4/sample-5s.mp4"
   },
   {
     id: "reel-electrical",
     trade: "Electrical",
     title: "What Electricians Handle Daily",
     description: "Run wire, upgrade panels, troubleshoot outages, install fixtures, and keep power safe and code-compliant.",
-    imageUrl: "https://images.unsplash.com/photo-1581092921461-eab62e97a780?auto=format&fit=crop&w=900&q=80"
+    imageUrl: "https://images.unsplash.com/photo-1581092921461-eab62e97a780?auto=format&fit=crop&w=900&q=80",
+    videoUrl: "https://samplelib.com/lib/preview/mp4/sample-10s.mp4"
   },
   {
     id: "reel-plumbing",
     trade: "Plumbing",
     title: "What Plumbers Really Work On",
     description: "Water lines, drain systems, fixtures, leak repairs, rough-ins, and keeping homes and businesses flowing right.",
-    imageUrl: "https://images.unsplash.com/photo-1620626011761-996317b8d101?auto=format&fit=crop&w=900&q=80"
+    imageUrl: "https://images.unsplash.com/photo-1620626011761-996317b8d101?auto=format&fit=crop&w=900&q=80",
+    videoUrl: "https://samplelib.com/lib/preview/mp4/sample-15s.mp4"
   },
   {
     id: "reel-carpentry",
     trade: "Carpentry",
     title: "What Carpenters Build",
     description: "Frame walls, install trim, hang doors, build structures, and turn plans into finished spaces.",
-    imageUrl: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=900&q=80"
+    imageUrl: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=900&q=80",
+    videoUrl: "https://samplelib.com/lib/preview/mp4/sample-20s.mp4"
   },
   {
     id: "reel-welding",
     trade: "Welding",
     title: "What Welders Do On the Job",
     description: "Fabricate steel, repair equipment, join metal safely, and work across shops, plants, and field jobsites.",
-    imageUrl: "https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&w=900&q=80"
+    imageUrl: "https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&w=900&q=80",
+    videoUrl: "https://samplelib.com/lib/preview/mp4/sample-5mb.mp4"
   },
   {
     id: "reel-roofing",
     trade: "Roofing",
     title: "What Roofers Handle Every Week",
     description: "Tear-offs, underlayment, flashing, shingle or membrane installs, and weatherproofing the top of the job.",
-    imageUrl: "https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=900&q=80"
+    imageUrl: "https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=900&q=80",
+    videoUrl: "https://samplelib.com/lib/preview/mp4/sample-30s.mp4"
   }
 ];
 
@@ -1454,7 +1461,15 @@ export function App() {
             <div className="reelsGrid">
             {mockReels.map((reel, index) => (
               <article key={reel.id} className="reelCard">
-                <img className="reelImage" src={reel.imageUrl} alt={reel.trade} />
+                <video
+                  className="reelVideo"
+                  src={reel.videoUrl}
+                  poster={reel.imageUrl}
+                  controls
+                  muted
+                  playsInline
+                  preload="metadata"
+                />
                 <div className="reelOverlay">
                   <div className="badge">Reel #{index + 1}</div>
                   <h3>{reel.title}</h3>
@@ -1462,9 +1477,9 @@ export function App() {
                   <div className="pillRow">
                     <span className="pill">{reel.trade}</span>
                     <span className="pill">Trade explainer</span>
-                    <span className="pill">Mock video</span>
+                    <span className="pill">Sample video</span>
                   </div>
-                  <div className="reelPlayButton">Watch preview</div>
+                  <div className="reelPlayButton">Press play</div>
                 </div>
               </article>
             ))}
