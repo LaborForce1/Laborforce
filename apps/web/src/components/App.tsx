@@ -725,7 +725,7 @@ export function App() {
             <div className="feedHeroRow">
               <div>
                 <div className="badge">LaborForce Feed</div>
-                <h1 style={{ marginBottom: 10 }}>Tradespeople, crews, and work proof first</h1>
+                <h1 style={{ marginBottom: 10 }}>See the work. Meet the people behind it.</h1>
               </div>
               <div className="feedProfileCard">
                 {user ? (
