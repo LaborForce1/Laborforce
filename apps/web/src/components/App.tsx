@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { type AlertItem, type EmployerApplicationView, type JobApplication, type JobListing, type Message, type MessageConversation, type SocialPost, type User, type UserTag } from "@laborforce/shared";
 import { apiGet, apiPatch, apiPost } from "../api/client";
+import { demoSocial } from "../data/mock";
 
 const AUTH_STORAGE_KEY = "laborforce-web-auth";
 
@@ -118,6 +119,162 @@ interface MockReel {
   videoUrl: string;
 }
 
+interface AssistantMessage {
+  id: string;
+  role: "assistant" | "user";
+  body: string;
+}
+
+interface SocialMediaDraft {
+  photoPreviewUrl: string;
+  photoName: string;
+  videoPreviewUrl: string;
+  videoName: string;
+}
+
+interface AiContactProfile {
+  user: User;
+  opener: string;
+  followUpStyle: string;
+  marketingAngle: string;
+}
+
+type Experience = "feed" | "network" | "jobs" | "reels" | "messages" | "notifications" | "assistant" | "profile" | "auth";
+type NetworkTab = "grow" | "catchUp";
+type NetworkToolView = "leads" | "groups" | "assistant" | "insights" | "marketplace";
+type NotificationFilter = "all" | "message" | "application" | "network" | "system";
+
+const aiNetworkCrew: AiContactProfile[] = [
+  {
+    user: {
+      id: "ai-malik-northside",
+      email: "malik@northside-demo.ai",
+      fullName: "Malik Northside",
+      phone: "+1-555-1001",
+      zipCode: "10011",
+      userTag: "employer",
+      tradeType: "Electrical Contractor",
+      isVerified: true,
+      isPremium: true,
+      verificationStatus: "verified",
+      profilePhotoUrl: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=900&q=80",
+      bio: "Runs service trucks across the city and hires fast when a board upgrade turns into a bigger project.",
+      yearsExperience: 14,
+      hourlyRate: 125,
+      openToWork: false,
+      ratingAverage: 4.9,
+      ratingCount: 128,
+      trustBadge: "Gold Verified",
+      unionStatus: "Open shop",
+      latitude: 40.741,
+      longitude: -73.989,
+      isBusinessVerified: true,
+      businessName: "Northside Electric"
+    },
+    opener: "Need a clean commercial electrician for panel upgrades and tenant buildouts.",
+    followUpStyle: "direct and fast",
+    marketingAngle: "Show clean installs, fast response times, and safety paperwork upfront."
+  },
+  {
+    user: {
+      id: "ai-jade-airflow",
+      email: "jade@airflow-demo.ai",
+      fullName: "Jade Airflow",
+      phone: "+1-555-1002",
+      zipCode: "11201",
+      userTag: "employer",
+      tradeType: "HVAC Service Manager",
+      isVerified: true,
+      isPremium: true,
+      verificationStatus: "verified",
+      profilePhotoUrl: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=900&q=80",
+      bio: "Books recurring rooftop, split-system, and emergency no-cool work around Brooklyn.",
+      yearsExperience: 11,
+      hourlyRate: 118,
+      openToWork: false,
+      ratingAverage: 4.8,
+      ratingCount: 96,
+      trustBadge: "Trusted",
+      unionStatus: "Mixed crews",
+      latitude: 40.693,
+      longitude: -73.989,
+      isBusinessVerified: true,
+      businessName: "Airflow Ops"
+    },
+    opener: "Looking for HVAC techs who can post good proof-of-work and follow through on maintenance contracts.",
+    followUpStyle: "organized and friendly",
+    marketingAngle: "Talk about repeat service value, maintenance savings, and before-and-after airflow wins."
+  },
+  {
+    user: {
+      id: "ai-rina-pipeworks",
+      email: "rina@pipeworks-demo.ai",
+      fullName: "Rina Pipeworks",
+      phone: "+1-555-1003",
+      zipCode: "10458",
+      userTag: "employee",
+      tradeType: "Licensed Plumber",
+      isVerified: true,
+      isPremium: false,
+      verificationStatus: "verified",
+      profilePhotoUrl: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=900&q=80",
+      bio: "Handles service calls, rough-ins, and property-manager work across the Bronx.",
+      yearsExperience: 9,
+      hourlyRate: 95,
+      openToWork: true,
+      ratingAverage: 4.7,
+      ratingCount: 74,
+      trustBadge: "Established",
+      unionStatus: "Local 1",
+      latitude: 40.862,
+      longitude: -73.888,
+      isBusinessVerified: false,
+      businessName: null
+    },
+    opener: "Always down to trade referral leads and compare what captions are getting homeowners to reply.",
+    followUpStyle: "helpful and practical",
+    marketingAngle: "Lead with the pain point, the fix, and what makes the customer trust you inside ten seconds."
+  },
+  {
+    user: {
+      id: "ai-omar-property",
+      email: "omar@property-demo.ai",
+      fullName: "Omar Property Group",
+      phone: "+1-555-1004",
+      zipCode: "10019",
+      userTag: "customer",
+      tradeType: "Property Manager",
+      isVerified: true,
+      isPremium: true,
+      verificationStatus: "verified",
+      profilePhotoUrl: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=900&q=80",
+      bio: "Runs multi-site maintenance and likes contractors who communicate fast and post real proof.",
+      yearsExperience: 12,
+      hourlyRate: null,
+      openToWork: false,
+      ratingAverage: 4.9,
+      ratingCount: 38,
+      trustBadge: "Gold Verified",
+      unionStatus: null,
+      latitude: 40.768,
+      longitude: -73.982,
+      isBusinessVerified: true,
+      businessName: "Omar Property Group"
+    },
+    opener: "I hire based on who looks responsive, organized, and legit online. Proof posts matter.",
+    followUpStyle: "professional and concise",
+    marketingAngle: "Say what type of properties you handle, response time, and how you keep owners updated."
+  }
+];
+
+const assistantStarterMessages: AssistantMessage[] = [
+  {
+    id: "assistant-welcome",
+    role: "assistant",
+    body: "I can tighten your captions, turn job photos into stronger marketing, suggest outreach messages, and send reminder alerts that explain why your notifications matter."
+  }
+];
+
 const mockReels: MockReel[] = [
   {
     id: "reel-hvac",
@@ -210,8 +367,113 @@ function getWorkerSpecialties(trade?: string | null) {
   return ["Residential work", "Commercial work", "Service calls", "Project installs"];
 }
 
+function createLocalId(prefix: string) {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function getAiContactById(userId: string) {
+  return aiNetworkCrew.find((contact) => contact.user.id === userId);
+}
+
+function buildAiReply(contact: AiContactProfile, input: string, currentUser: User | null) {
+  const normalized = input.toLowerCase();
+  const name = currentUser?.fullName?.split(" ")[0] ?? "there";
+  const businessLabel = currentUser?.businessName ?? currentUser?.tradeType ?? "your business";
+
+  if (normalized.includes("price") || normalized.includes("quote") || normalized.includes("bid")) {
+    return `${name}, lead with your range, what is included, and your response time. Buyers around ${contact.user.businessName ?? contact.user.fullName} want clear scope before they hop on a call.`;
+  }
+
+  if (normalized.includes("available") || normalized.includes("schedule") || normalized.includes("tomorrow")) {
+    return `I can work with that. ${contact.user.fullName} usually moves fastest when you send a short availability window, job type, and one proof photo from ${businessLabel}.`;
+  }
+
+  if (normalized.includes("post") || normalized.includes("caption") || normalized.includes("marketing")) {
+    return `${contact.marketingAngle} If you want, send me your draft and I will punch it up into something tighter and easier to trust.`;
+  }
+
+  return `Sounds good. I’m ${contact.followUpStyle}, so the best next step is a short message with the job type, service area, and one strong proof point from ${businessLabel}.`;
+}
+
+function buildNotificationsSummary(alerts: AlertItem[], unreadMessagesCount: number) {
+  const importantAlerts = alerts.filter((alert) => !alert.isRead);
+  const messageCount = unreadMessagesCount + importantAlerts.filter((alert) => alert.type === "message").length;
+  const applicationCount = importantAlerts.filter((alert) => alert.type === "application").length;
+  const networkCount = importantAlerts.filter((alert) => alert.type === "network").length;
+
+  const parts = [
+    messageCount > 0 ? `${messageCount} message update${messageCount === 1 ? "" : "s"} need fast replies` : "",
+    applicationCount > 0 ? `${applicationCount} hiring update${applicationCount === 1 ? "" : "s"} can change revenue` : "",
+    networkCount > 0 ? `${networkCount} network signal${networkCount === 1 ? "" : "s"} could turn into work` : ""
+  ].filter(Boolean);
+
+  if (parts.length === 0) {
+    return "You’re clear right now. No urgent notifications are stacking up, so this is a good moment to post or do outreach.";
+  }
+
+  return `${parts.join(", ")}. Clearing these first keeps leads warm and stops money-moving conversations from cooling off.`;
+}
+
+function buildAssistantReply(
+  input: string,
+  context: {
+    user: User | null;
+    notificationsSummary: string;
+    socialPosts: SocialPost[];
+    unreadMessagesCount: number;
+  }
+) {
+  const normalized = input.toLowerCase();
+  const businessLabel = context.user?.businessName ?? context.user?.tradeType ?? "your trade business";
+
+  if (normalized.includes("notification") || normalized.includes("remind")) {
+    return context.notificationsSummary;
+  }
+
+  if (normalized.includes("post") || normalized.includes("caption") || normalized.includes("rewrite")) {
+    return `Try this structure for ${businessLabel}: problem, fix, proof, and call to action. Example: "Emergency service call, bad disconnect swapped, system tested, same-day turnaround. DM if you need fast reliable help this week."`;
+  }
+
+  if (normalized.includes("market") || normalized.includes("lead") || normalized.includes("promote")) {
+    return `For ${businessLabel}, post one proof piece, one customer outcome, and one clear availability update every week. The fastest trust builder is clean proof plus a direct line about where you work and how fast you respond.`;
+  }
+
+  if (normalized.includes("network") || normalized.includes("message")) {
+    return `Keep outreach short: who you help, where you work, and one reason to trust you. Then move them into a reply with availability, timing, or a next-step question.`;
+  }
+
+  return `I’m tuned for ${businessLabel}. I can rewrite a post, sharpen a sales message, plan outreach, or turn your notifications into a priority list.`;
+}
+
+function createLocalSocialPost(args: {
+  user: User | null;
+  selectedTag: UserTag;
+  postText: string;
+  photoUrls: string[];
+  videoUrl: string | null;
+}) {
+  return {
+    id: createLocalId("social"),
+    authorId: args.user?.id ?? "local-demo-user",
+    postText: args.postText,
+    photoUrls: args.photoUrls,
+    videoUrl: args.videoUrl,
+    isProofWall: true,
+    tradeTag: args.user?.tradeType ?? args.user?.businessName ?? args.user?.userTag ?? args.selectedTag,
+    locationDisplay: args.user?.zipCode ?? "Local demo",
+    latitude: null,
+    longitude: null,
+    respectsCount: 0,
+    impressedCount: 0,
+    helpfulCount: 0,
+    commentsCount: 0,
+    createdAt: new Date().toISOString()
+  } satisfies SocialPost;
+}
+
 export function App() {
   const [activeExperience, setActiveExperience] = useState<"feed" | "network" | "jobs" | "reels" | "messages" | "notifications" | "profile" | "auth">("feed");
+  const [activeNetworkTab, setActiveNetworkTab] = useState<NetworkTab>("grow");
   const [selectedTag, setSelectedTag] = useState<UserTag>("employee");
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [authState, setAuthState] = useState<AuthResponse["credentials"] | null>(null);
@@ -444,6 +706,11 @@ export function App() {
   const connectedUserIds = new Set(conversations.map((conversation) => conversation.participant.id));
   const connectionSuggestions = directoryUsers.filter((candidate) => !connectedUserIds.has(candidate.id)).slice(0, 8);
   const existingConnections = directoryUsers.filter((candidate) => connectedUserIds.has(candidate.id)).slice(0, 8);
+  const catchUpConversations = conversations.slice(0, 4);
+  const catchUpConnections = existingConnections.slice(0, 4);
+  const networkAlerts = alerts
+    .filter((alert) => alert.type === "network" || alert.type === "message")
+    .slice(0, 4);
 
   async function loadJobs() {
     setIsLoadingJobs(true);
@@ -896,6 +1163,25 @@ export function App() {
     params.set("view", view);
     const next = params.toString();
     window.history.replaceState({}, "", next ? `/?${next}` : "/");
+  }
+
+  function handleAlertAction(type: AlertItem["type"]) {
+    if (type === "message") {
+      switchExperience("messages");
+      return;
+    }
+
+    if (type === "application") {
+      switchExperience("jobs");
+      return;
+    }
+
+    if (type === "network") {
+      switchExperience("profile");
+      return;
+    }
+
+    switchExperience("notifications");
   }
 
   function signOut() {
@@ -1719,48 +2005,213 @@ export function App() {
             </aside>
             <div className="stack">
               <div className="card">
-                <div className="networkTabs">
-                  <button className="networkTab networkTabActive">Grow</button>
-                  <button className="networkTab">Catch up</button>
+                <div className="networkTabs" role="tablist" aria-label="Network views">
+                  <button
+                    id="network-grow-tab"
+                    className={`networkTab ${activeNetworkTab === "grow" ? "networkTabActive" : ""}`}
+                    type="button"
+                    role="tab"
+                    aria-selected={activeNetworkTab === "grow"}
+                    aria-controls="network-grow-panel"
+                    onClick={() => setActiveNetworkTab("grow")}
+                  >
+                    Grow
+                  </button>
+                  <button
+                    id="network-catch-up-tab"
+                    className={`networkTab ${activeNetworkTab === "catchUp" ? "networkTabActive" : ""}`}
+                    type="button"
+                    role="tab"
+                    aria-selected={activeNetworkTab === "catchUp"}
+                    aria-controls="network-catch-up-panel"
+                    onClick={() => setActiveNetworkTab("catchUp")}
+                  >
+                    Catch up
+                  </button>
                 </div>
-                <div className="networkSectionHeader" style={{ marginTop: 18 }}>
-                  <h3>People you may know in the trades</h3>
-                  <button className="actionButton ghostButton" type="button">Show all</button>
-                </div>
-                <div className="networkCards" style={{ marginTop: 16 }}>
-                  {connectionSuggestions.length > 0 ? (
-                    connectionSuggestions.map((candidate) => (
-                      <article key={candidate.id} className="networkCard">
-                        <div className="networkCardBanner" />
-                        <div className="networkAvatar">
-                          {candidate.profilePhotoUrl ? (
-                            <img className="profileAvatarImage" src={candidate.profilePhotoUrl} alt={candidate.fullName} />
+
+                {activeNetworkTab === "grow" ? (
+                  <div
+                    id="network-grow-panel"
+                    className="networkTabPanel"
+                    role="tabpanel"
+                    aria-labelledby="network-grow-tab"
+                  >
+                    <div className="networkSectionHeader">
+                      <h3>People you may know in the trades</h3>
+                      <button
+                        className="actionButton ghostButton"
+                        type="button"
+                        onClick={() => switchExperience("messages")}
+                      >
+                        Browse all
+                      </button>
+                    </div>
+                    <div className="networkCards">
+                      {connectionSuggestions.length > 0 ? (
+                        connectionSuggestions.map((candidate) => (
+                          <article key={candidate.id} className="networkCard">
+                            <div className="networkCardBanner" />
+                            <div className="networkAvatar">
+                              {candidate.profilePhotoUrl ? (
+                                <img className="profileAvatarImage" src={candidate.profilePhotoUrl} alt={candidate.fullName} />
+                              ) : (
+                                <span>{candidate.fullName.slice(0, 1)}</span>
+                              )}
+                            </div>
+                            <div className="networkCardBody">
+                              <strong>{candidate.fullName}</strong>
+                              <div className="muted">{candidate.tradeType ?? candidate.businessName ?? candidate.userTag}</div>
+                              <div className="muted">{candidate.trustBadge ?? candidate.verificationStatus}</div>
+                              <button
+                                className="actionButton ghostButton"
+                                type="button"
+                                onClick={() => {
+                                  setSelectedRecipientId(candidate.id);
+                                  setSuccessMessage(`Ready to connect with ${candidate.fullName}.`);
+                                  switchExperience("messages");
+                                }}
+                              >
+                                Connect
+                              </button>
+                            </div>
+                          </article>
+                        ))
+                      ) : (
+                        <p className="muted">As more verified people join, connection suggestions will show here.</p>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    id="network-catch-up-panel"
+                    className="networkTabPanel"
+                    role="tabpanel"
+                    aria-labelledby="network-catch-up-tab"
+                  >
+                    <div className="networkSectionHeader">
+                      <h3>Stay on top of your network</h3>
+                      <button
+                        className="actionButton ghostButton"
+                        type="button"
+                        onClick={() => switchExperience("messages")}
+                      >
+                        Open inbox
+                      </button>
+                    </div>
+
+                    <div className="networkCatchUpGrid">
+                      <div className="networkCatchUpCard">
+                        <div className="networkSectionHeader">
+                          <h3>Recent conversations</h3>
+                          <div className="badge">{conversations.length}</div>
+                        </div>
+                        <div className="networkCatchUpList">
+                          {catchUpConversations.length > 0 ? (
+                            catchUpConversations.map((conversation) => (
+                              <button
+                                key={conversation.conversationId}
+                                className="conversationButton"
+                                type="button"
+                                onClick={() => {
+                                  setSelectedRecipientId(conversation.participant.id);
+                                  switchExperience("messages");
+                                }}
+                              >
+                                <div className="headerRow">
+                                  <strong>{conversation.participant.fullName}</strong>
+                                  <span className="pill">{conversation.unreadCount} unread</span>
+                                </div>
+                                <div className="muted">
+                                  {conversation.participant.tradeType ?? conversation.participant.businessName ?? conversation.participant.userTag}
+                                </div>
+                                <div>{conversation.latestMessage.messageText}</div>
+                                <div className="muted">{formatRelativeTime(conversation.latestMessage.sentAt)} ago</div>
+                              </button>
+                            ))
                           ) : (
-                            <span>{candidate.fullName.slice(0, 1)}</span>
+                            <p className="muted">Messages with your verified network will show here as soon as conversations start.</p>
                           )}
                         </div>
-                        <div className="networkCardBody">
-                          <strong>{candidate.fullName}</strong>
-                          <div className="muted">{candidate.tradeType ?? candidate.businessName ?? candidate.userTag}</div>
-                          <div className="muted">{candidate.trustBadge ?? candidate.verificationStatus}</div>
-                          <button
-                            className="actionButton ghostButton"
-                            type="button"
-                            onClick={() => {
-                              setSelectedRecipientId(candidate.id);
-                              setSuccessMessage(`Ready to connect with ${candidate.fullName}.`);
-                              switchExperience("messages");
-                            }}
-                          >
-                            Connect
-                          </button>
+                      </div>
+
+                      <div className="networkCatchUpCard">
+                        <div className="networkSectionHeader">
+                          <h3>Network updates</h3>
+                          <div className="badge">{networkAlerts.filter((alert) => !alert.isRead).length} new</div>
                         </div>
-                      </article>
-                    ))
-                  ) : (
-                    <p className="muted">As more verified people join, connection suggestions will show here.</p>
-                  )}
-                </div>
+                        <div className="networkCatchUpList">
+                          {networkAlerts.length > 0 ? (
+                            networkAlerts.map((alert) => (
+                              <article key={alert.id} className="networkCatchUpItem">
+                                <div className="headerRow">
+                                  <div className="pillRow">
+                                    <span className="pill">{alert.type}</span>
+                                    {!alert.isRead && <span className="badge">New</span>}
+                                  </div>
+                                  <div className="muted">{formatRelativeTime(alert.createdAt)}</div>
+                                </div>
+                                <strong>{alert.title}</strong>
+                                <p className="muted">{alert.body}</p>
+                                {alert.actionLabel && (
+                                  <div className="notificationActionRow">
+                                    <button
+                                      className="actionButton ghostButton"
+                                      type="button"
+                                      onClick={() => handleAlertAction(alert.type)}
+                                    >
+                                      {alert.actionLabel}
+                                    </button>
+                                  </div>
+                                )}
+                              </article>
+                            ))
+                          ) : (
+                            <p className="muted">Replies, profile activity, and new connection updates will show up here.</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="networkCatchUpCard">
+                      <div className="networkSectionHeader">
+                        <h3>People to check in with</h3>
+                        <button
+                          className="actionButton ghostButton"
+                          type="button"
+                          onClick={() => switchExperience("messages")}
+                        >
+                          Message someone
+                        </button>
+                      </div>
+                      <div className="stack">
+                        {catchUpConnections.length > 0 ? (
+                          catchUpConnections.map((candidate) => (
+                            <div key={candidate.id} className="networkConnectionRow">
+                              <div>
+                                <strong>{candidate.fullName}</strong>
+                                <div className="muted">{candidate.tradeType ?? candidate.businessName ?? candidate.userTag}</div>
+                                <div className="muted">{getWorkerSpecialties(candidate.tradeType).slice(0, 2).join(" • ")}</div>
+                              </div>
+                              <button
+                                className="actionButton ghostButton"
+                                type="button"
+                                onClick={() => {
+                                  setSelectedRecipientId(candidate.id);
+                                  switchExperience("messages");
+                                }}
+                              >
+                                Message
+                              </button>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="muted">As you build connections, your quickest follow-ups will show here.</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="card">
@@ -1989,15 +2440,7 @@ export function App() {
                         <button
                           className="actionButton ghostButton"
                           type="button"
-                          onClick={() => {
-                            if (alert.type === "message") {
-                              switchExperience("messages");
-                            } else if (alert.type === "application") {
-                              switchExperience("jobs");
-                            } else if (alert.type === "network") {
-                              switchExperience("profile");
-                            }
-                          }}
+                          onClick={() => handleAlertAction(alert.type)}
                         >
                           {alert.actionLabel}
                         </button>
