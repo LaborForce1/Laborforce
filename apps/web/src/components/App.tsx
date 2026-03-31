@@ -211,7 +211,7 @@ function getWorkerSpecialties(trade?: string | null) {
 }
 
 export function App() {
-  const [activeExperience, setActiveExperience] = useState<"feed" | "jobs" | "reels" | "messages" | "notifications" | "profile">("feed");
+  const [activeExperience, setActiveExperience] = useState<"feed" | "network" | "jobs" | "reels" | "messages" | "notifications" | "profile">("feed");
   const [selectedTag, setSelectedTag] = useState<UserTag>("employee");
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [authState, setAuthState] = useState<AuthResponse["credentials"] | null>(null);
@@ -311,7 +311,7 @@ export function App() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const view = params.get("view");
-    if (view === "feed" || view === "jobs" || view === "reels" || view === "messages" || view === "notifications" || view === "profile") {
+    if (view === "feed" || view === "network" || view === "jobs" || view === "reels" || view === "messages" || view === "notifications" || view === "profile") {
       setActiveExperience(view);
     }
   }, []);
@@ -441,6 +441,9 @@ export function App() {
   const profilePosts = socialPosts.filter((post) => post.authorId === user?.id);
   const pinnedProfilePosts = profilePosts.slice(0, 3);
   const workerSpecialties = getWorkerSpecialties(user?.tradeType);
+  const connectedUserIds = new Set(conversations.map((conversation) => conversation.participant.id));
+  const connectionSuggestions = directoryUsers.filter((candidate) => !connectedUserIds.has(candidate.id)).slice(0, 8);
+  const existingConnections = directoryUsers.filter((candidate) => connectedUserIds.has(candidate.id)).slice(0, 8);
 
   async function loadJobs() {
     setIsLoadingJobs(true);
@@ -886,7 +889,7 @@ export function App() {
     }
   }
 
-  function switchExperience(view: "feed" | "jobs" | "reels" | "messages" | "notifications" | "profile") {
+  function switchExperience(view: "feed" | "network" | "jobs" | "reels" | "messages" | "notifications" | "profile") {
     setActiveExperience(view);
     const params = new URLSearchParams(window.location.search);
     params.set("view", view);
@@ -1512,6 +1515,122 @@ export function App() {
         </section>
       )}
 
+      {activeExperience === "network" && (
+        <section className="socialShell">
+          <div className="headerRow">
+            <div>
+              <div className="badge">Network</div>
+              <h2 style={{ marginTop: 10 }}>Grow your LaborForce network</h2>
+              <p className="muted" style={{ marginTop: 8 }}>
+                Find verified workers, employers, and customers nearby and connect fast.
+              </p>
+            </div>
+          </div>
+          <div className="networkShell" style={{ marginTop: 18 }}>
+            <aside className="networkSidebar">
+              <div className="card">
+                <h3>Manage my network</h3>
+                <div className="networkMenu" style={{ marginTop: 14 }}>
+                  <div className="networkMenuItem">
+                    <span>Connections</span>
+                    <strong>{existingConnections.length}</strong>
+                  </div>
+                  <div className="networkMenuItem">
+                    <span>Following</span>
+                    <strong>{directoryUsers.length}</strong>
+                  </div>
+                  <div className="networkMenuItem">
+                    <span>Messages</span>
+                    <strong>{conversations.length}</strong>
+                  </div>
+                  <div className="networkMenuItem">
+                    <span>Verified people</span>
+                    <strong>{directoryUsers.length}</strong>
+                  </div>
+                </div>
+              </div>
+            </aside>
+            <div className="stack">
+              <div className="card">
+                <div className="networkTabs">
+                  <button className="networkTab networkTabActive">Grow</button>
+                  <button className="networkTab">Catch up</button>
+                </div>
+                <div className="networkSectionHeader" style={{ marginTop: 18 }}>
+                  <h3>People you may know in the trades</h3>
+                  <button className="actionButton ghostButton" type="button">Show all</button>
+                </div>
+                <div className="networkCards" style={{ marginTop: 16 }}>
+                  {connectionSuggestions.length > 0 ? (
+                    connectionSuggestions.map((candidate) => (
+                      <article key={candidate.id} className="networkCard">
+                        <div className="networkCardBanner" />
+                        <div className="networkAvatar">
+                          {candidate.profilePhotoUrl ? (
+                            <img className="profileAvatarImage" src={candidate.profilePhotoUrl} alt={candidate.fullName} />
+                          ) : (
+                            <span>{candidate.fullName.slice(0, 1)}</span>
+                          )}
+                        </div>
+                        <div className="networkCardBody">
+                          <strong>{candidate.fullName}</strong>
+                          <div className="muted">{candidate.tradeType ?? candidate.businessName ?? candidate.userTag}</div>
+                          <div className="muted">{candidate.trustBadge ?? candidate.verificationStatus}</div>
+                          <button
+                            className="actionButton ghostButton"
+                            type="button"
+                            onClick={() => {
+                              setSelectedRecipientId(candidate.id);
+                              setSuccessMessage(`Ready to connect with ${candidate.fullName}.`);
+                              switchExperience("messages");
+                            }}
+                          >
+                            Connect
+                          </button>
+                        </div>
+                      </article>
+                    ))
+                  ) : (
+                    <p className="muted">As more verified people join, connection suggestions will show here.</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="card">
+                <div className="networkSectionHeader">
+                  <h3>Your connections</h3>
+                  <div className="badge">{existingConnections.length}</div>
+                </div>
+                <div className="stack" style={{ marginTop: 14 }}>
+                  {existingConnections.length > 0 ? (
+                    existingConnections.map((candidate) => (
+                      <div key={candidate.id} className="networkConnectionRow">
+                        <div>
+                          <strong>{candidate.fullName}</strong>
+                          <div className="muted">{candidate.tradeType ?? candidate.businessName ?? candidate.userTag}</div>
+                        </div>
+                        <button
+                          className="actionButton ghostButton"
+                          type="button"
+                          onClick={() => {
+                            setSelectedRecipientId(candidate.id);
+                            switchExperience("messages");
+                          }}
+                        >
+                          Message
+                        </button>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="muted">Start connecting with verified people and they’ll show up here.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
+
       {activeExperience === "messages" && (
         <section className="socialShell">
           <div className="headerRow">
@@ -1952,6 +2071,13 @@ export function App() {
         >
           <span className="bottomNavIcon">Home</span>
           <span>Feed</span>
+        </button>
+        <button
+          className={`bottomNavButton ${activeExperience === "network" ? "bottomNavActive" : ""}`}
+          onClick={() => switchExperience("network")}
+        >
+          <span className="bottomNavIcon">Crew</span>
+          <span>Network</span>
         </button>
         <button
           className={`bottomNavButton ${activeExperience === "jobs" ? "bottomNavActive" : ""}`}

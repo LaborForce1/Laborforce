@@ -458,6 +458,113 @@ textarea:focus {
   align-items: start;
 }
 
+.networkShell {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: 300px minmax(0, 1fr);
+  align-items: start;
+}
+
+.networkSidebar {
+  align-self: start;
+}
+
+.networkMenu {
+  display: grid;
+  gap: 12px;
+}
+
+.networkMenuItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: #ffffff;
+  padding: 14px;
+}
+
+.networkTabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.networkTab {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 12px 14px;
+  background: #ffffff;
+  color: var(--text);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.networkTabActive {
+  background: linear-gradient(135deg, #1f6fd1, #3f5f86);
+  color: #ffffff;
+  border-color: transparent;
+}
+
+.networkSectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.networkCards {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.networkCard {
+  overflow: hidden;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: #ffffff;
+  box-shadow: var(--shadow);
+}
+
+.networkCardBanner {
+  height: 78px;
+  background: linear-gradient(135deg, #1f6fd1 0%, #3f5f86 48%, #88b5e8 100%);
+}
+
+.networkAvatar {
+  width: 78px;
+  height: 78px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  margin: -38px auto 0;
+  border: 4px solid #ffffff;
+  background: linear-gradient(135deg, #1f6fd1, #3f5f86);
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 1.5rem;
+}
+
+.networkCardBody {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  text-align: center;
+}
+
+.networkConnectionRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: #ffffff;
+  padding: 14px;
+}
+
 .notificationsRail {
   display: grid;
   gap: 10px;
@@ -864,6 +971,7 @@ img {
   .reelsShell,
   .messagesShell,
   .notificationsShell,
+  .networkShell,
   .profileLayout,
   .socialLayout,
   .reelsGrid,
@@ -887,6 +995,7 @@ img {
   .profileHeroTop,
   .profileStats,
   .profileFeatureGrid,
+  .networkCards,
   .pinnedGrid,
   .proofGrid {
     grid-template-columns: 1fr;
