@@ -1250,23 +1250,44 @@ export function App() {
       )}
 
       {activeExperience === "reels" && (
-        <section className="card socialShell">
+        <section className="socialShell">
           <div className="headerRow">
             <div>
               <div className="badge">Reels page</div>
               <h2 style={{ marginTop: 10 }}>Short-form work videos and trade tips</h2>
               <p className="muted" style={{ marginTop: 8 }}>
-                This page should feel like a vertical work-content rabbit hole.
+                Quick work proof, before-and-after clips, safety tips, and trade education live here.
               </p>
             </div>
-            <div className="badge">reels</div>
+            <div className="pillRow">
+              <span className="pill">{reelPosts.length} reels</span>
+              <span className="pill">Work proof</span>
+            </div>
           </div>
-          <div className="reelsGrid" style={{ marginTop: 16 }}>
+          <div className="reelsShell" style={{ marginTop: 18 }}>
+            <div className="stack">
+              <div className="card">
+                <h3>What belongs here</h3>
+                <div className="pillRow" style={{ marginTop: 12 }}>
+                  <span className="pill">Install clips</span>
+                  <span className="pill">Tool tips</span>
+                  <span className="pill">Jobsite updates</span>
+                  <span className="pill">Trade education</span>
+                </div>
+              </div>
+              <div className="card">
+                <h3>Best performing content</h3>
+                <p className="muted">
+                  Short, vertical, useful, and local. Show what you built, how you did it, and what someone can learn in under 30 seconds.
+                </p>
+              </div>
+            </div>
+            <div className="reelsGrid">
             {reelPosts.map((post, index) => (
               <article key={post.id} className="reelCard">
                 {post.photoUrls[0] && <img className="reelImage" src={post.photoUrls[0]} alt={post.tradeTag} />}
                 <div className="reelOverlay">
-                  <div className="badge">Short video concept #{index + 1}</div>
+                  <div className="badge">Reel #{index + 1}</div>
                   <h3>{post.tradeTag} Reel</h3>
                   <p>{post.postText}</p>
                   <div className="pillRow">
@@ -1277,24 +1298,29 @@ export function App() {
                 </div>
               </article>
             ))}
+            </div>
           </div>
         </section>
       )}
 
       {activeExperience === "messages" && (
-        <section className="card socialShell">
+        <section className="socialShell">
           <div className="headerRow">
             <div>
               <div className="badge">Messages page</div>
               <h2 style={{ marginTop: 10 }}>Verified-only conversations</h2>
               <p className="muted" style={{ marginTop: 8 }}>
-                Real DMs between verified people, with unread counts and SMS hooks.
+                Real DMs between verified people. New messages can trigger SMS alerts when Twilio is connected.
               </p>
             </div>
             <div className="badge">{unreadMessagesCount} unread</div>
           </div>
-          <div className="socialLayout" style={{ marginTop: 16 }}>
-            <div className="stack">
+          <div className="messagesShell" style={{ marginTop: 18 }}>
+            <div className="stack messageInboxPanel">
+              <div className="card">
+                <h3>Inbox</h3>
+                <p className="muted">Talk only with verified workers, employers, and customers.</p>
+              </div>
               {conversations.length > 0 ? (
                 conversations.map((conversation) => (
                   <button
@@ -1314,11 +1340,11 @@ export function App() {
                 ))
               ) : (
                 <div className="card">
-                  <p className="muted">Your inbox will feel like a social DM section once people start connecting here.</p>
+                  <p className="muted">No conversations yet. Start by choosing a verified person on the right.</p>
                 </div>
               )}
             </div>
-            <div className="stack">
+            <div className="stack messageComposerPanel">
               <div className="card">
                 <h3>Pick a verified person</h3>
                 <select
@@ -1335,7 +1361,7 @@ export function App() {
               </div>
               {selectedRecipientId && (
                 <>
-                  <div className="messageThread">
+                  <div className="messageThread card">
                     {isLoadingThread ? (
                       <div className="muted">Loading conversation...</div>
                     ) : threadMessages.length > 0 ? (
@@ -1353,7 +1379,8 @@ export function App() {
                       <div className="muted">No messages yet. Start the conversation.</div>
                     )}
                   </div>
-                  <div className="stack">
+                  <div className="stack card">
+                    <h3>New message</h3>
                     <textarea
                       rows={3}
                       placeholder="Type your message"
