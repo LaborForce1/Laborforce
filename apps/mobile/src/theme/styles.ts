@@ -3,7 +3,7 @@ import { StyleSheet } from "react-native";
 export const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: "#edf5fb"
+    backgroundColor: "#f2f1ff"
   },
   screenContent: {
     padding: 20,
@@ -14,17 +14,17 @@ export const styles = StyleSheet.create({
     borderRadius: 24,
     backgroundColor: "#ffffff",
     borderWidth: 1,
-    borderColor: "#d8e4ef",
+    borderColor: "#dddff6",
     marginBottom: 18
   },
   title: {
-    color: "#17324d",
+    color: "#1b2148",
     fontSize: 28,
     fontWeight: "700",
     marginBottom: 8
   },
   body: {
-    color: "#61778f",
+    color: "#66709a",
     fontSize: 15,
     lineHeight: 22
   },
@@ -34,32 +34,32 @@ export const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 14,
     borderWidth: 1,
-    borderColor: "#d8e4ef"
+    borderColor: "#dddff6"
   },
   tileTitle: {
-    color: "#17324d",
+    color: "#1b2148",
     fontSize: 18,
     fontWeight: "700",
     marginBottom: 6
   },
   badge: {
     alignSelf: "flex-start",
-    backgroundColor: "#eaf4fd",
-    color: "#2274b9",
+    backgroundColor: "#edf1ff",
+    color: "#4e46a8",
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
     marginBottom: 10
   },
   sectionTitle: {
-    color: "#17324d",
+    color: "#1b2148",
     fontSize: 20,
     fontWeight: "700",
     marginBottom: 12,
     marginTop: 8
   },
   statusText: {
-    color: "#356994",
+    color: "#5a5bb2",
     fontSize: 14,
     marginTop: 10
   },
@@ -70,7 +70,7 @@ export const styles = StyleSheet.create({
   },
   primaryButton: {
     flex: 1,
-    backgroundColor: "#2274b9",
+    backgroundColor: "#376dff",
     borderRadius: 16,
     paddingVertical: 14,
     paddingHorizontal: 16,
@@ -78,7 +78,7 @@ export const styles = StyleSheet.create({
   },
   secondaryButton: {
     flex: 1,
-    backgroundColor: "#e8f5ee",
+    backgroundColor: "#f0edff",
     borderRadius: 16,
     paddingVertical: 14,
     paddingHorizontal: 16,
@@ -89,7 +89,7 @@ export const styles = StyleSheet.create({
     fontWeight: "700"
   },
   secondaryButtonText: {
-    color: "#1f8f67",
+    color: "#6b4de6",
     fontWeight: "700"
   },
   pillRow: {
@@ -99,10 +99,10 @@ export const styles = StyleSheet.create({
     marginTop: 10
   },
   pill: {
-    backgroundColor: "#eef6fc",
-    color: "#275783",
+    backgroundColor: "#f0edff",
+    color: "#4e46a8",
     borderWidth: 1,
-    borderColor: "#d9e9f7",
+    borderColor: "#dfd6ff",
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 6,
@@ -113,25 +113,25 @@ export const styles = StyleSheet.create({
     marginBottom: 12
   },
   chip: {
-    backgroundColor: "#f2f8fd",
+    backgroundColor: "#f4f2ff",
     borderWidth: 1,
-    borderColor: "#d8e4ef",
+    borderColor: "#dddff6",
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 8,
     marginRight: 8
   },
   selectedChip: {
-    backgroundColor: "#2274b9",
+    backgroundColor: "#6b4de6",
     borderWidth: 1,
-    borderColor: "#2274b9",
+    borderColor: "#6b4de6",
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 8,
     marginRight: 8
   },
   chipText: {
-    color: "#2f5f8e",
+    color: "#5548a5",
     fontWeight: "600"
   },
   selectedChipText: {
@@ -142,11 +142,11 @@ export const styles = StyleSheet.create({
     minHeight: 90,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: "#d8e4ef",
-    backgroundColor: "#f9fbfe",
+    borderColor: "#dddff6",
+    backgroundColor: "#fafaff",
     paddingHorizontal: 14,
     paddingVertical: 12,
-    color: "#17324d",
+    color: "#1b2148",
     textAlignVertical: "top",
     marginBottom: 12
   }

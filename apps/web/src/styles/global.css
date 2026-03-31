@@ -1,17 +1,17 @@
 :root {
   color-scheme: light;
-  --bg: #edf5fb;
+  --bg: #f2f1ff;
   --panel: rgba(255, 255, 255, 0.96);
   --panel-strong: #ffffff;
-  --text: #17324d;
-  --muted: #61778f;
-  --line: #d8e4ef;
-  --accent: #2274b9;
-  --accent-2: #1f9a6d;
-  --accent-soft: #eaf4fd;
+  --text: #1b2148;
+  --muted: #66709a;
+  --line: #dddff6;
+  --accent: #376dff;
+  --accent-2: #7a4dff;
+  --accent-soft: #edf1ff;
   --success: #198754;
   --danger: #c9372c;
-  --shadow: 0 16px 40px rgba(31, 74, 122, 0.1);
+  --shadow: 0 16px 40px rgba(70, 62, 140, 0.12);
   font-family: "Avenir Next", "Segoe UI", sans-serif;
 }
 
@@ -23,7 +23,7 @@ body {
   margin: 0;
   min-height: 100vh;
   background:
-    linear-gradient(180deg, #f8fbff 0%, #edf5fb 28%, #eef7f4 100%);
+    linear-gradient(180deg, #fafaff 0%, #eef2ff 36%, #f4f0ff 100%);
   color: var(--text);
 }
 
@@ -44,11 +44,11 @@ textarea {
   display: grid;
   gap: 24px;
   padding: 40px;
-  border: 1px solid #d8e5ef;
+  border: 1px solid #dfe4fb;
   background:
-    linear-gradient(125deg, rgba(34, 116, 185, 0.14), rgba(255, 255, 255, 0.98) 38%, rgba(31, 154, 109, 0.12) 100%);
+    linear-gradient(125deg, rgba(55, 109, 255, 0.16), rgba(255, 255, 255, 0.98) 38%, rgba(122, 77, 255, 0.16) 100%);
   border-radius: 28px;
-  box-shadow: 0 24px 60px rgba(31, 74, 122, 0.1);
+  box-shadow: 0 24px 60px rgba(70, 62, 140, 0.12);
 }
 
 .tileGrid,
@@ -117,7 +117,7 @@ textarea {
 .jobsHero {
   border-radius: 24px;
   border: 1px solid var(--line);
-  background: linear-gradient(125deg, rgba(34, 116, 185, 0.1), rgba(255, 255, 255, 0.98) 42%, rgba(31, 154, 109, 0.1) 100%);
+  background: linear-gradient(125deg, rgba(55, 109, 255, 0.12), rgba(255, 255, 255, 0.98) 42%, rgba(122, 77, 255, 0.12) 100%);
   padding: 24px;
   box-shadow: var(--shadow);
 }
@@ -220,19 +220,19 @@ input:focus,
 select:focus,
 textarea:focus {
   outline: none;
-  border-color: #75aee2;
-  box-shadow: 0 0 0 4px rgba(34, 116, 185, 0.12);
+  border-color: #8a82ff;
+  box-shadow: 0 0 0 4px rgba(122, 77, 255, 0.12);
 }
 
 .actionButton {
   border: 0;
   border-radius: 14px;
   padding: 12px 16px;
-  background: linear-gradient(135deg, #2274b9, #1f9a6d);
+  background: linear-gradient(135deg, #376dff, #7a4dff);
   color: #ffffff;
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 10px 24px rgba(34, 116, 185, 0.22);
+  box-shadow: 0 10px 24px rgba(70, 62, 140, 0.22);
 }
 
 .actionButton:disabled {
@@ -331,9 +331,9 @@ textarea:focus {
 .pill {
   padding: 8px 12px;
   border-radius: 999px;
-  background: #eef6fc;
-  color: #275783;
-  border: 1px solid #d9e9f7;
+  background: #f0edff;
+  color: #4e46a8;
+  border: 1px solid #dfd6ff;
 }
 
 .betaItem {
@@ -508,9 +508,9 @@ textarea:focus {
 }
 
 .bottomNavActive {
-  background: linear-gradient(135deg, #2274b9, #1f9a6d);
+  background: linear-gradient(135deg, #376dff, #7a4dff);
   color: #ffffff;
-  box-shadow: 0 12px 24px rgba(34, 116, 185, 0.18);
+  box-shadow: 0 12px 24px rgba(70, 62, 140, 0.2);
 }
 
 .bottomNavIcon {
