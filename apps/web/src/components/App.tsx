@@ -429,6 +429,7 @@ export function App() {
   const unreadMessagesCount = conversations.reduce((total, conversation) => total + conversation.unreadCount, 0);
   const reelPosts = socialPosts;
   const profilePosts = socialPosts.filter((post) => post.authorId === user?.id);
+  const pinnedProfilePosts = profilePosts.slice(0, 3);
   const workerSpecialties = getWorkerSpecialties(user?.tradeType);
 
   async function loadJobs() {
@@ -1636,6 +1637,13 @@ export function App() {
                           View posts
                         </button>
                       </div>
+                      {user.userTag === "employee" && (
+                        <div className="profileMiniBadges">
+                          <span className="profileMiniBadge">Verified worker</span>
+                          <span className="profileMiniBadge">Proof wall active</span>
+                          <span className="profileMiniBadge">Rated publicly</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                   <p className="profileBio">
@@ -1696,6 +1704,34 @@ export function App() {
                       </p>
                     </div>
                   </div>
+                </div>
+
+                <div className="card">
+                  <div className="headerRow">
+                    <h3>Pinned work</h3>
+                    <div className="badge">Top 3</div>
+                  </div>
+                  {pinnedProfilePosts.length > 0 ? (
+                    <div className="pinnedGrid" style={{ marginTop: 14 }}>
+                      {pinnedProfilePosts.map((post) => (
+                        <article key={post.id} className="pinnedCard">
+                          {post.photoUrls[0] ? (
+                            <img className="pinnedImage" src={post.photoUrls[0]} alt={post.tradeTag} />
+                          ) : (
+                            <div className="proofPlaceholder">{post.tradeTag}</div>
+                          )}
+                          <div className="pinnedCopy">
+                            <strong>{post.tradeTag}</strong>
+                            <div className="muted">{post.locationDisplay}</div>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="muted" style={{ marginTop: 12 }}>
+                      Your best proof wall posts will show here first.
+                    </p>
+                  )}
                 </div>
 
                 {user.userTag === "employee" && (

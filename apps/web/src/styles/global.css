@@ -515,6 +515,22 @@ textarea:focus {
   gap: 10px;
 }
 
+.profileMiniBadges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.profileMiniBadge {
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid var(--line);
+  color: var(--text);
+  font-weight: 700;
+  font-size: 0.82rem;
+}
+
 .profileAvatarImage {
   width: 100%;
   height: 100%;
@@ -570,6 +586,31 @@ textarea:focus {
   display: grid;
   gap: 16px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.pinnedGrid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.pinnedCard {
+  overflow: hidden;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: #ffffff;
+}
+
+.pinnedImage {
+  width: 100%;
+  height: 150px;
+  object-fit: cover;
+}
+
+.pinnedCopy {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
 }
 
 .proofCard {
@@ -789,6 +830,7 @@ img {
   .profileHeroTop,
   .profileStats,
   .profileFeatureGrid,
+  .pinnedGrid,
   .proofGrid {
     grid-template-columns: 1fr;
   }
