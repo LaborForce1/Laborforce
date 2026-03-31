@@ -116,7 +116,7 @@ function formatRelativeTime(value: string) {
 }
 
 export function App() {
-  const [activeExperience, setActiveExperience] = useState<"feed" | "reels" | "messages">("feed");
+  const [activeExperience, setActiveExperience] = useState<"feed" | "jobs" | "reels" | "messages">("feed");
   const [selectedTag, setSelectedTag] = useState<UserTag>("employee");
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [authState, setAuthState] = useState<AuthResponse["credentials"] | null>(null);
@@ -197,7 +197,7 @@ export function App() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const view = params.get("view");
-    if (view === "feed" || view === "reels" || view === "messages") {
+    if (view === "feed" || view === "jobs" || view === "reels" || view === "messages") {
       setActiveExperience(view);
     }
   }, []);
@@ -698,7 +698,7 @@ export function App() {
     }
   }
 
-  function switchExperience(view: "feed" | "reels" | "messages") {
+  function switchExperience(view: "feed" | "jobs" | "reels" | "messages") {
     setActiveExperience(view);
     const params = new URLSearchParams(window.location.search);
     params.set("view", view);
@@ -726,7 +726,7 @@ export function App() {
                   {roleCopy.summary}
                 </p>
               </div>
-              <div className="card">
+              <div className="card heroSideCard">
                 {user ? (
                   <>
                     <strong>{user.fullName}</strong>
@@ -746,7 +746,7 @@ export function App() {
               </div>
             </div>
 
-            <div className="tileGrid">
+            <div className="tileGrid roleStrip">
               {userOptions.map((option) => (
                 <button className="tile" key={option.tag} onClick={() => setSelectedTag(option.tag)}>
                   <div className="badge">{option.tag === selectedTag ? "Selected role" : "Choose role"}</div>
@@ -769,7 +769,7 @@ export function App() {
               <div className="badge">feed</div>
             </div>
             <div className="socialLayout" style={{ marginTop: 16 }}>
-            <div className="stack">
+            <div className="stack roomyStack">
               <div className="composerCard">
                 <div className="headerRow">
                   <strong>Share a work win</strong>
@@ -829,7 +829,7 @@ export function App() {
                 </article>
               ))}
             </div>
-            <div className="stack">
+            <div className="stack sideRail">
               <div className="card">
                 <h3>Trending jobs</h3>
                 <div className="stack" style={{ marginTop: 12 }}>
@@ -849,19 +849,25 @@ export function App() {
             </div>
           </section>
 
-      <section style={{ marginTop: 24 }} className="workToolsHeader">
-        <div className="card">
-          <div className="headerRow">
-            <div>
-              <div className="badge">Work tools</div>
-              <h2 style={{ marginTop: 10 }}>Hiring, posting, and account tools live underneath the social feed</h2>
-            </div>
-            <div className="muted">This part matters, but it should not overpower the social front page.</div>
+        </>
+      )}
+
+      {activeExperience === "jobs" && (
+        <>
+      <section className="card socialShell">
+        <div className="headerRow">
+          <div>
+            <div className="badge">Jobs page</div>
+            <h2 style={{ marginTop: 10 }}>Hiring and job tools</h2>
+            <p className="muted" style={{ marginTop: 8 }}>
+              Everything for logging in, posting work, applying, and reviewing applicants lives here.
+            </p>
           </div>
+          <div className="badge">jobs</div>
         </div>
       </section>
 
-      <section style={{ marginTop: 24 }} className="feedGrid authGrid">
+      <section style={{ marginTop: 28 }} className="feedGrid authGrid airyToolsGrid">
         <div className="card">
           <div className="headerRow">
             <h2>{user ? "Account" : "Sign in or create account"}</h2>
@@ -1221,92 +1227,6 @@ export function App() {
           )}
         </div>
 
-        <div className="card">
-          <div className="headerRow">
-            <h2>Verified Messages</h2>
-            <div className="badge">{unreadMessagesCount} unread</div>
-          </div>
-          {user ? (
-            <div className="stack" style={{ marginTop: 12 }}>
-              <label className="field">
-                <span>Pick a verified person</span>
-                <select
-                  value={selectedRecipientId}
-                  onChange={(event) => setSelectedRecipientId(event.target.value)}
-                >
-                  <option value="">Choose someone</option>
-                  {directoryUsers.map((candidate) => (
-                    <option key={candidate.id} value={candidate.id}>
-                      {candidate.fullName} - {candidate.tradeType ?? candidate.businessName ?? candidate.userTag}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              {conversations.length > 0 && (
-                <div className="stack">
-                  {conversations.map((conversation) => (
-                    <button
-                      key={conversation.conversationId}
-                      className="conversationButton"
-                      onClick={() => setSelectedRecipientId(conversation.participant.id)}
-                    >
-                      <div className="headerRow">
-                        <strong>{conversation.participant.fullName}</strong>
-                        <span className="pill">{conversation.unreadCount} unread</span>
-                      </div>
-                      <div className="muted">
-                        {conversation.latestMessage.messageText}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {selectedRecipientId ? (
-                <>
-                  <div className="messageThread">
-                    {isLoadingThread ? (
-                      <div className="muted">Loading conversation...</div>
-                    ) : threadMessages.length > 0 ? (
-                      threadMessages.map((message) => (
-                        <article
-                          key={message.id}
-                          className={`messageBubble ${message.senderId === user.id ? "sentBubble" : "receivedBubble"}`}
-                        >
-                          <strong>{message.senderId === user.id ? "You" : "Them"}</strong>
-                          <div>{message.messageText}</div>
-                          <div className="muted">{new Date(message.sentAt).toLocaleString()}</div>
-                        </article>
-                      ))
-                    ) : (
-                      <div className="muted">No messages yet. Say what you need and start the chat.</div>
-                    )}
-                  </div>
-                  <div className="stack">
-                    <textarea
-                      rows={3}
-                      placeholder="Type your message"
-                      value={messageText}
-                      onChange={(event) => setMessageText(event.target.value)}
-                    />
-                    <button
-                      className="actionButton"
-                      disabled={isSendingMessage}
-                      onClick={() => void handleSendMessage()}
-                    >
-                      {isSendingMessage ? "Sending..." : "Send message"}
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <div className="muted">Only verified users can message each other. Pick a verified person to start.</div>
-              )}
-            </div>
-          ) : (
-            <div className="muted" style={{ marginTop: 12 }}>Sign in to use verified messaging.</div>
-          )}
-        </div>
       </section>
 
       <section style={{ marginTop: 24 }} className="statsGrid">
@@ -1545,6 +1465,13 @@ export function App() {
         >
           <span className="bottomNavIcon">Home</span>
           <span>Feed</span>
+        </button>
+        <button
+          className={`bottomNavButton ${activeExperience === "jobs" ? "bottomNavActive" : ""}`}
+          onClick={() => switchExperience("jobs")}
+        >
+          <span className="bottomNavIcon">Work</span>
+          <span>Jobs</span>
         </button>
         <button
           className={`bottomNavButton ${activeExperience === "reels" ? "bottomNavActive" : ""}`}
