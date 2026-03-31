@@ -14,7 +14,7 @@ socialRouter.get("/feed", asyncHandler(async (req, res) => {
   const posts = await socialRepository.list(limit);
 
   res.json({
-    audience: "local",
+    audience: "everyone",
     reactions: ["Respect", "Impressed", "Helpful"],
     items: posts.length > 0 ? posts : demoSocial
   });

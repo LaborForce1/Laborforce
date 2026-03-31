@@ -27,6 +27,15 @@ interface JobListingRow {
   expires_at: Date;
 }
 
+interface ListActiveOptions {
+  limit: number;
+  radiusMiles?: number;
+  origin?: {
+    latitude: number;
+    longitude: number;
+  } | null;
+}
+
 export interface CreateJobInput {
   employerId: string;
   jobTitle: string;
@@ -95,9 +104,35 @@ function mapJob(row: JobListingRow): JobListing {
     isSurge: row.is_surge,
     unionRequired: row.union_required,
     certificationsRequired: row.certifications_required ?? [],
+    distanceMiles: null,
     postedAt: row.posted_at.toISOString(),
     expiresAt: row.expires_at.toISOString()
   };
+}
+
+function hasCoordinates(latitude: number, longitude: number) {
+  return Number.isFinite(latitude) && Number.isFinite(longitude) && (latitude !== 0 || longitude !== 0);
+}
+
+function toRadians(value: number) {
+  return (value * Math.PI) / 180;
+}
+
+function getDistanceMiles(
+  origin: { latitude: number; longitude: number },
+  destination: { latitude: number; longitude: number }
+) {
+  const earthRadiusMiles = 3958.8;
+  const latitudeDelta = toRadians(destination.latitude - origin.latitude);
+  const longitudeDelta = toRadians(destination.longitude - origin.longitude);
+  const originLatitude = toRadians(origin.latitude);
+  const destinationLatitude = toRadians(destination.latitude);
+
+  const haversine =
+    Math.sin(latitudeDelta / 2) ** 2 +
+    Math.cos(originLatitude) * Math.cos(destinationLatitude) * Math.sin(longitudeDelta / 2) ** 2;
+
+  return earthRadiusMiles * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
 }
 
 const returningFields = `
@@ -130,7 +165,7 @@ const returningFields = `
 `;
 
 export const jobsRepository = {
-  async listActive(limit: number) {
+  async listActive(options: ListActiveOptions) {
     const result = await query<JobListingRow>(
       `
         ${selectFields}
@@ -138,10 +173,37 @@ export const jobsRepository = {
         ORDER BY is_surge DESC, posted_at DESC
         LIMIT $1
       `,
-      [limit]
+      [Math.max(options.limit, 100)]
     );
 
-    return result.rows.map(mapJob);
+    const mappedJobs = result.rows.map(mapJob).map((job) => {
+      if (
+        options.origin &&
+        hasCoordinates(options.origin.latitude, options.origin.longitude) &&
+        hasCoordinates(job.latitude, job.longitude)
+      ) {
+        return {
+          ...job,
+          distanceMiles: Math.round(getDistanceMiles(options.origin, { latitude: job.latitude, longitude: job.longitude }))
+        };
+      }
+
+      return job;
+    });
+
+    const filteredJobs = mappedJobs.filter((job) => {
+      if (!options.origin || !options.radiusMiles) {
+        return true;
+      }
+
+      if (job.distanceMiles === null || job.distanceMiles === undefined) {
+        return true;
+      }
+
+      return job.distanceMiles <= options.radiusMiles;
+    });
+
+    return filteredJobs.slice(0, options.limit);
   },
 
   async findById(id: string) {

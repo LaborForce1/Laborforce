@@ -26,12 +26,19 @@ async function main() {
         business_name,
         rating_average,
         rating_count,
-        trust_badge
+        trust_badge,
+        latitude,
+        longitude
       )
       VALUES
-        ($1, $2, $3, $4, $5, 'employer', 'HVAC', TRUE, 'verified', TRUE, TRUE, 'Northside HVAC', 4.6, 18, 'Gold Verified'),
-        ($6, $7, $8, $9, $10, 'employee', 'Electrician', TRUE, 'verified', TRUE, FALSE, NULL, 4.8, 33, 'Gold Verified')
-      ON CONFLICT (email) DO NOTHING
+        ($1, $2, $3, $4, $5, 'employer', 'HVAC', TRUE, 'verified', TRUE, TRUE, 'Northside HVAC', 4.6, 18, 'Gold Verified', 40.7171, -73.9565),
+        ($6, $7, $8, $9, $10, 'employee', 'Electrician', TRUE, 'verified', TRUE, FALSE, NULL, 4.8, 33, 'Gold Verified', 40.7506, -73.9972)
+      ON CONFLICT (email) DO UPDATE
+      SET
+        latitude = EXCLUDED.latitude,
+        longitude = EXCLUDED.longitude,
+        is_verified = EXCLUDED.is_verified,
+        verification_status = EXCLUDED.verification_status
     `,
     [
       "dispatch@northsidehvac.com",

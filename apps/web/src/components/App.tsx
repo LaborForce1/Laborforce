@@ -129,6 +129,7 @@ export function App() {
   const [socialPosts, setSocialPosts] = useState<SocialPost[]>([]);
   const [selectedRecipientId, setSelectedRecipientId] = useState<string>("");
   const [jobsRadius, setJobsRadius] = useState(50);
+  const [driveRadius, setDriveRadius] = useState(50);
   const [isBooting, setIsBooting] = useState(true);
   const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
   const [isLoadingJobs, setIsLoadingJobs] = useState(false);
@@ -192,6 +193,10 @@ export function App() {
     void loadPaymentsConfig();
     void loadSocialFeed();
   }, []);
+
+  useEffect(() => {
+    void loadJobs();
+  }, [driveRadius, authState?.accessToken]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -301,13 +306,13 @@ export function App() {
   const employerActive = jobs.filter((job) => user?.userTag === "employer" && job.employerId === user.id && job.status === "active");
   const applicationMap = new Map(applications.map((application) => [application.jobListingId, application]));
   const unreadMessagesCount = conversations.reduce((total, conversation) => total + conversation.unreadCount, 0);
-  const reelPosts = socialPosts.slice(0, 4);
+  const reelPosts = socialPosts;
 
   async function loadJobs() {
     setIsLoadingJobs(true);
 
     try {
-      const response = await apiGet<JobsResponse>("/jobs");
+      const response = await apiGet<JobsResponse>(`/jobs?radiusMiles=${driveRadius}`, authState?.accessToken ?? undefined);
       setJobs(response.items);
       setJobsRadius(response.radiusMiles);
     } catch (error) {
@@ -844,7 +849,12 @@ export function App() {
                   {jobs.slice(0, 3).map((job) => (
                     <div key={job.id} className="trendItem">
                       <strong>{job.jobTitle}</strong>
-                      <div className="muted">{job.countyLocation} • {formatMoney(job.hourlyRateMin)} - {formatMoney(job.hourlyRateMax)}</div>
+                      <div className="muted">
+                        {job.countyLocation}
+                        {typeof job.distanceMiles === "number" ? ` • ${job.distanceMiles} mi away` : ""}
+                        {" • "}
+                        {formatMoney(job.hourlyRateMin)} - {formatMoney(job.hourlyRateMax)}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1006,6 +1016,17 @@ export function App() {
             <h2>Live Jobs</h2>
             <div className="badge">{jobsRadius} mile radius</div>
           </div>
+          <div className="stack" style={{ marginTop: 12 }}>
+            <label className="field">
+              <span>How far are you willing to drive?</span>
+              <select value={driveRadius} onChange={(event) => setDriveRadius(Number(event.target.value))}>
+                <option value={30}>30 miles</option>
+                <option value={50}>50 miles</option>
+                <option value={75}>75 miles</option>
+                <option value={100}>100 miles</option>
+              </select>
+            </label>
+          </div>
           <div className="muted">
             {isLoadingJobs ? "Loading live listings..." : `${jobs.length} listing${jobs.length === 1 ? "" : "s"} from PostgreSQL`}
           </div>
@@ -1019,7 +1040,10 @@ export function App() {
                 <div className="headerRow">
                   <div>
                     <strong>{job.jobTitle}</strong>
-                    <div className="muted">{job.tradeCategory} • {job.countyLocation}</div>
+                    <div className="muted">
+                      {job.tradeCategory} • {job.countyLocation}
+                      {typeof job.distanceMiles === "number" ? ` • ${job.distanceMiles} miles away` : ""}
+                    </div>
                   </div>
                   {job.isSurge && <div className="headerRow"><div className="surgeDot" /> <span>Surge</span></div>}
                 </div>

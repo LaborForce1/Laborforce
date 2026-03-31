@@ -5,14 +5,39 @@ import { asyncHandler } from "../../utils/asyncHandler.js";
 import { HttpError } from "../../utils/http.js";
 import { jobsRepository } from "./repository.js";
 import { usersRepository } from "../users/repository.js";
+import { authService } from "../../services/authService.js";
 
 export const jobsRouter = Router();
 
 jobsRouter.get("/", asyncHandler(async (req, res) => {
   const limit = z.coerce.number().int().min(1).max(100).default(25).parse(req.query.limit ?? 25);
+  const radiusMiles = z.coerce.number().int().min(10).max(100).default(50).parse(req.query.radiusMiles ?? 50);
+  const authHeader = req.headers.authorization;
+  const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  let user = null;
+
+  if (token) {
+    try {
+      const payload = authService.verifyAccessToken(token);
+      user = await usersRepository.findById(payload.sub);
+    } catch {
+      user = null;
+    }
+  }
+
   res.json({
-    radiusMiles: 50,
-    items: await jobsRepository.listActive(limit)
+    radiusMiles,
+    items: await jobsRepository.listActive({
+      limit,
+      radiusMiles,
+      origin:
+        user?.latitude !== null && user?.latitude !== undefined && user?.longitude !== null && user?.longitude !== undefined
+          ? {
+              latitude: user.latitude,
+              longitude: user.longitude
+            }
+          : null
+    })
   });
 }));
 

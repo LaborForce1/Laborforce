@@ -55,6 +55,7 @@ export interface JobListing {
   isSurge: boolean;
   unionRequired: boolean;
   certificationsRequired: string[];
+  distanceMiles?: number | null;
   postedAt: string;
   expiresAt: string;
 }
