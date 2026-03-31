@@ -179,6 +179,25 @@ function formatRelativeTime(value: string) {
   return `${Math.floor(hours / 24)}d`;
 }
 
+function getWorkerSpecialties(trade?: string | null) {
+  const normalized = trade?.toLowerCase() ?? "";
+
+  if (normalized.includes("electric")) {
+    return ["Panel upgrades", "Service calls", "Troubleshooting", "Lighting installs"];
+  }
+  if (normalized.includes("hvac")) {
+    return ["System installs", "Airflow fixes", "Service calls", "Maintenance"];
+  }
+  if (normalized.includes("plumb")) {
+    return ["Fixture installs", "Drain repairs", "Water lines", "Leak detection"];
+  }
+  if (normalized.includes("carpent")) {
+    return ["Framing", "Trim work", "Doors", "Finish carpentry"];
+  }
+
+  return ["Residential work", "Commercial work", "Service calls", "Project installs"];
+}
+
 export function App() {
   const [activeExperience, setActiveExperience] = useState<"feed" | "jobs" | "reels" | "messages" | "profile">("feed");
   const [selectedTag, setSelectedTag] = useState<UserTag>("employee");
@@ -403,6 +422,7 @@ export function App() {
   const unreadMessagesCount = conversations.reduce((total, conversation) => total + conversation.unreadCount, 0);
   const reelPosts = socialPosts;
   const profilePosts = socialPosts.filter((post) => post.authorId === user?.id);
+  const workerSpecialties = getWorkerSpecialties(user?.tradeType);
 
   async function loadJobs() {
     setIsLoadingJobs(true);
@@ -1609,7 +1629,46 @@ export function App() {
                       <span>Rate</span>
                     </div>
                   </div>
+                  {user.userTag === "employee" && (
+                    <>
+                      <div className="profileSectionLabel">Specialties</div>
+                      <div className="pillRow" style={{ marginTop: 10 }}>
+                        {workerSpecialties.map((specialty) => (
+                          <span key={specialty} className="pill">{specialty}</span>
+                        ))}
+                      </div>
+                    </>
+                  )}
                 </div>
+
+                {user.userTag === "employee" && (
+                  <div className="card">
+                    <div className="headerRow">
+                      <h3>Worker snapshot</h3>
+                      <div className="badge">Mock profile view</div>
+                    </div>
+                    <div className="profileFeatureGrid" style={{ marginTop: 14 }}>
+                      <div className="profileFeatureCard">
+                        <strong>Availability</strong>
+                        <p className="muted">
+                          {user.openToWork ? "Open to the right opportunity and visible to employers." : "Not actively looking right now."}
+                        </p>
+                      </div>
+                      <div className="profileFeatureCard">
+                        <strong>Best fit</strong>
+                        <p className="muted">
+                          {user.tradeType ?? "Trade"} work, service calls, installs, and dependable field work.
+                        </p>
+                      </div>
+                      <div className="profileFeatureCard">
+                        <strong>Trust</strong>
+                        <p className="muted">
+                          Verified profile, public rating, and visible proof wall posts for hiring managers to review fast.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div className="card">
                   <div className="headerRow">

@@ -488,6 +488,15 @@ textarea:focus {
   margin-top: 16px;
 }
 
+.profileSectionLabel {
+  margin-top: 18px;
+  font-size: 0.86rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
 .profileStats {
   display: grid;
   gap: 12px;
@@ -503,6 +512,21 @@ textarea:focus {
   text-align: center;
   display: grid;
   gap: 6px;
+}
+
+.profileFeatureGrid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.profileFeatureCard {
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, #ffffff, #f7fbff);
+  padding: 16px;
+  display: grid;
+  gap: 8px;
 }
 
 .proofGrid {
@@ -727,6 +751,7 @@ img {
 
   .profileHeroTop,
   .profileStats,
+  .profileFeatureGrid,
   .proofGrid {
     grid-template-columns: 1fr;
   }
