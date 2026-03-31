@@ -292,7 +292,7 @@ export function App() {
       case "employer":
         return {
           headline: "Verified crews, faster hiring",
-          summary: "Post deposit-backed jobs, search trade-specific portfolios, and manage your pipeline from lead to completed."
+          summary: "Post jobs, search trade-specific portfolios, and manage your pipeline from lead to completed."
         };
       default:
         return {
@@ -923,7 +923,7 @@ export function App() {
                   ? "Business verification is still required before posting jobs."
                   : stripeReady
                     ? "This dashboard is using the live LaborForce API and Stripe checkout flow."
-                    : "This dashboard is using the live LaborForce API. Stripe is not configured yet, so deposit checkout falls back locally."}
+                    : "This dashboard is using the live LaborForce API. Stripe is not configured yet, so publishing uses a local fallback."}
               </div>
               {user.userTag === "employer" && (
                 <div className="pillRow">
@@ -1052,7 +1052,6 @@ export function App() {
                   <span className="pill">{formatMoney(job.hourlyRateMin)} - {formatMoney(job.hourlyRateMax)}</span>
                   <span className="pill">{formatStatus(job.jobType)}</span>
                   <span className="pill">{formatStatus(job.status)}</span>
-                  <span className="pill">Deposit {formatMoney(job.depositAmount)}</span>
                   {existingApplication && <span className="pill">Applied</span>}
                 </div>
                 {user?.userTag === "employer" && job.employerId === user.id && job.status === "draft" && (
@@ -1062,11 +1061,7 @@ export function App() {
                     disabled={publishingJobId === job.id}
                     onClick={() => void handlePublishJob(job.id)}
                   >
-                    {publishingJobId === job.id
-                      ? "Processing deposit..."
-                      : stripeReady
-                        ? "Pay deposit and publish"
-                        : "Publish with local fallback"}
+                    {publishingJobId === job.id ? "Publishing..." : "Publish job"}
                   </button>
                 )}
                 {user?.userTag === "employee" && job.status === "active" && !existingApplication && (
