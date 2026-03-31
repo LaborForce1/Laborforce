@@ -1626,6 +1626,59 @@ export function App() {
                   )}
                 </div>
               </div>
+
+              <div className="networkToolsPanel">
+                <div className="networkToolsSidebar">
+                  <div className="networkToolsGroup">
+                    <div className="networkToolsLabel">Talent</div>
+                    <button className="networkToolsNavItem networkToolsNavActive">Find leads</button>
+                    <button className="networkToolsNavItem">Groups</button>
+                  </div>
+                  <div className="networkToolsGroup">
+                    <div className="networkToolsLabel">Hiring</div>
+                    <button className="networkToolsNavItem">Hire with AI</button>
+                    <button className="networkToolsNavItem">Talent insights</button>
+                  </div>
+                  <div className="networkToolsGroup">
+                    <div className="networkToolsLabel">Sales</div>
+                    <button className="networkToolsNavItem">Services marketplace</button>
+                  </div>
+                </div>
+                <div className="networkToolsContent">
+                  <div className="networkToolsItem">
+                    <strong>Hire on LaborForce</strong>
+                    <span className="muted">Find, attract, and recruit verified trade talent.</span>
+                  </div>
+                  <div className="networkToolsItem">
+                    <strong>Sell with LaborForce</strong>
+                    <span className="muted">Build relationships with homeowners, property managers, and trade buyers.</span>
+                  </div>
+                  <div className="networkToolsItem">
+                    <strong>Post a job</strong>
+                    <span className="muted">Create openings, publish them, and collect real applicants.</span>
+                  </div>
+                  <div className="networkToolsItem">
+                    <strong>Advertise your business</strong>
+                    <span className="muted">Use your feed, reels, and proof wall to grow your trade business.</span>
+                  </div>
+                  <div className="networkToolsItem">
+                    <strong>Get started with Premium</strong>
+                    <span className="muted">Unlock CRM, AI tools, unlimited proof wall uploads, and extra visibility.</span>
+                  </div>
+                  <div className="networkToolsItem">
+                    <strong>Learn with LaborForce</strong>
+                    <span className="muted">Trade explainers, work tips, and training-style reels for your crew.</span>
+                  </div>
+                  <div className="networkToolsItem">
+                    <strong>Admin center</strong>
+                    <span className="muted">Manage billing, profile controls, and company account details.</span>
+                  </div>
+                  <div className="networkToolsItem">
+                    <strong>Create a company page</strong>
+                    <span className="muted">Give your business a public profile with jobs, proof wall, and trusted badges.</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </section>

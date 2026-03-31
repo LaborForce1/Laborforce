@@ -565,6 +565,72 @@ textarea:focus {
   padding: 14px;
 }
 
+.networkToolsPanel {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  border-radius: 22px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: #ffffff;
+  box-shadow: var(--shadow);
+}
+
+.networkToolsSidebar {
+  padding: 22px;
+  border-right: 1px solid var(--line);
+  background: linear-gradient(180deg, #f8fbff, #f2f7fc);
+  display: grid;
+  gap: 22px;
+}
+
+.networkToolsGroup {
+  display: grid;
+  gap: 10px;
+}
+
+.networkToolsLabel {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.networkToolsNavItem {
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--text);
+  padding: 12px 14px;
+  text-align: left;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.networkToolsNavActive {
+  background: #ffffff;
+  border-color: var(--line);
+  box-shadow: var(--shadow);
+}
+
+.networkToolsContent {
+  padding: 24px;
+  display: grid;
+  gap: 18px;
+}
+
+.networkToolsItem {
+  display: grid;
+  gap: 6px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.networkToolsItem:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
 .notificationsRail {
   display: grid;
   gap: 10px;
@@ -972,6 +1038,7 @@ img {
   .messagesShell,
   .notificationsShell,
   .networkShell,
+  .networkToolsPanel,
   .profileLayout,
   .socialLayout,
   .reelsGrid,
