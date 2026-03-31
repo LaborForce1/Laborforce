@@ -37,7 +37,48 @@ textarea {
 .shell {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 36px 28px 120px;
+  padding: 24px 28px 48px;
+}
+
+.appTopNav {
+  position: sticky;
+  top: 16px;
+  z-index: 50;
+  margin-bottom: 28px;
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 10px;
+  padding: 10px;
+  border-radius: 24px;
+  border: 1px solid rgba(214, 226, 238, 0.95);
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 16px 40px rgba(28, 57, 92, 0.12);
+}
+
+.appTopNavButton {
+  border: 0;
+  border-radius: 18px;
+  background: transparent;
+  color: var(--muted);
+  padding: 12px 10px;
+  display: grid;
+  gap: 4px;
+  justify-items: center;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.appTopNavActive {
+  background: linear-gradient(135deg, #1f6fd1, #3f5f86);
+  color: #ffffff;
+  box-shadow: 0 12px 24px rgba(28, 57, 92, 0.18);
+}
+
+.appTopNavIcon {
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
 
 .hero {
@@ -916,49 +957,6 @@ textarea:focus {
   border: 1px solid #d8e5ef;
 }
 
-.bottomNav {
-  position: fixed;
-  left: 50%;
-  bottom: 18px;
-  transform: translateX(-50%);
-  width: min(720px, calc(100% - 24px));
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 10px;
-  padding: 10px;
-  border-radius: 24px;
-  border: 1px solid rgba(214, 231, 220, 0.9);
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(16px);
-  box-shadow: 0 16px 40px rgba(23, 67, 49, 0.16);
-  z-index: 50;
-}
-
-.bottomNavButton {
-  border: 0;
-  border-radius: 18px;
-  background: transparent;
-  color: var(--muted);
-  padding: 12px 10px;
-  display: grid;
-  gap: 4px;
-  justify-items: center;
-  cursor: pointer;
-  font-weight: 700;
-}
-
-.bottomNavActive {
-  background: linear-gradient(135deg, #1f6fd1, #3f5f86);
-  color: #ffffff;
-  box-shadow: 0 12px 24px rgba(28, 57, 92, 0.2);
-}
-
-.bottomNavIcon {
-  font-size: 0.82rem;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-}
-
 .metaRow {
   display: flex;
   flex-wrap: wrap;
@@ -1020,7 +1018,7 @@ img {
 
 @media (max-width: 960px) {
   .shell {
-    padding: 24px 16px 120px;
+    padding: 20px 16px 36px;
   }
 
   .hero {
@@ -1050,9 +1048,9 @@ img {
     grid-template-columns: 1fr;
   }
 
-  .bottomNav {
-    width: calc(100% - 16px);
-    bottom: 10px;
+  .appTopNav {
+    top: 10px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .notificationsRail {

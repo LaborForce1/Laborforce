@@ -906,6 +906,58 @@ export function App() {
 
   return (
     <div className="shell">
+      <nav className="appTopNav">
+        <button
+          className={`appTopNavButton ${activeExperience === "feed" ? "appTopNavActive" : ""}`}
+          onClick={() => switchExperience("feed")}
+        >
+          <span className="appTopNavIcon">Home</span>
+          <span>Feed</span>
+        </button>
+        <button
+          className={`appTopNavButton ${activeExperience === "network" ? "appTopNavActive" : ""}`}
+          onClick={() => switchExperience("network")}
+        >
+          <span className="appTopNavIcon">Crew</span>
+          <span>Network</span>
+        </button>
+        <button
+          className={`appTopNavButton ${activeExperience === "jobs" ? "appTopNavActive" : ""}`}
+          onClick={() => switchExperience("jobs")}
+        >
+          <span className="appTopNavIcon">Work</span>
+          <span>Jobs</span>
+        </button>
+        <button
+          className={`appTopNavButton ${activeExperience === "reels" ? "appTopNavActive" : ""}`}
+          onClick={() => switchExperience("reels")}
+        >
+          <span className="appTopNavIcon">Play</span>
+          <span>Reels</span>
+        </button>
+        <button
+          className={`appTopNavButton ${activeExperience === "messages" ? "appTopNavActive" : ""}`}
+          onClick={() => switchExperience("messages")}
+        >
+          <span className="appTopNavIcon">Chat</span>
+          <span>Messages</span>
+        </button>
+        <button
+          className={`appTopNavButton ${activeExperience === "notifications" ? "appTopNavActive" : ""}`}
+          onClick={() => switchExperience("notifications")}
+        >
+          <span className="appTopNavIcon">Bell</span>
+          <span>Alerts</span>
+        </button>
+        <button
+          className={`appTopNavButton ${activeExperience === "profile" ? "appTopNavActive" : ""}`}
+          onClick={() => switchExperience("profile")}
+        >
+          <span className="appTopNavIcon">You</span>
+          <span>Profile</span>
+        </button>
+      </nav>
+
       {activeExperience === "feed" && (
         <>
           <section className="feedHero">
@@ -2117,57 +2169,6 @@ export function App() {
         </section>
       )}
 
-      <nav className="bottomNav">
-        <button
-          className={`bottomNavButton ${activeExperience === "feed" ? "bottomNavActive" : ""}`}
-          onClick={() => switchExperience("feed")}
-        >
-          <span className="bottomNavIcon">Home</span>
-          <span>Feed</span>
-        </button>
-        <button
-          className={`bottomNavButton ${activeExperience === "network" ? "bottomNavActive" : ""}`}
-          onClick={() => switchExperience("network")}
-        >
-          <span className="bottomNavIcon">Crew</span>
-          <span>Network</span>
-        </button>
-        <button
-          className={`bottomNavButton ${activeExperience === "jobs" ? "bottomNavActive" : ""}`}
-          onClick={() => switchExperience("jobs")}
-        >
-          <span className="bottomNavIcon">Work</span>
-          <span>Jobs</span>
-        </button>
-        <button
-          className={`bottomNavButton ${activeExperience === "reels" ? "bottomNavActive" : ""}`}
-          onClick={() => switchExperience("reels")}
-        >
-          <span className="bottomNavIcon">Play</span>
-          <span>Reels</span>
-        </button>
-        <button
-          className={`bottomNavButton ${activeExperience === "messages" ? "bottomNavActive" : ""}`}
-          onClick={() => switchExperience("messages")}
-        >
-          <span className="bottomNavIcon">Chat</span>
-          <span>Messages</span>
-        </button>
-        <button
-          className={`bottomNavButton ${activeExperience === "notifications" ? "bottomNavActive" : ""}`}
-          onClick={() => switchExperience("notifications")}
-        >
-          <span className="bottomNavIcon">Bell</span>
-          <span>Alerts</span>
-        </button>
-        <button
-          className={`bottomNavButton ${activeExperience === "profile" ? "bottomNavActive" : ""}`}
-          onClick={() => switchExperience("profile")}
-        >
-          <span className="bottomNavIcon">You</span>
-          <span>Profile</span>
-        </button>
-      </nav>
     </div>
   );
 }
