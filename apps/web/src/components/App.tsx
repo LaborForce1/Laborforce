@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { type EmployerApplicationView, type JobApplication, type JobListing, type Message, type MessageConversation, type SocialPost, type User, type UserTag } from "@laborforce/shared";
 import { apiGet, apiPatch, apiPost } from "../api/client";
-import { userOptions } from "../data/mock";
 
 const AUTH_STORAGE_KEY = "laborforce-web-auth";
 
@@ -717,59 +716,57 @@ export function App() {
     <div className="shell">
       {activeExperience === "feed" && (
         <>
-          <section className="hero">
-            <div className="headerRow">
+          <section className="feedHero">
+            <div className="feedHeroRow">
               <div>
-                <div className="badge">LaborForce Verified Workforce Platform</div>
-                <h1>{roleCopy.headline}</h1>
-                <p className="muted" style={{ maxWidth: 820 }}>
-                  {roleCopy.summary}
+                <div className="badge">LaborForce Feed</div>
+                <h1 style={{ marginBottom: 10 }}>Tradespeople, crews, and work proof first</h1>
+                <p className="muted" style={{ maxWidth: 720 }}>
+                  The front page is now just the social side of LaborForce. Jobs live in the Jobs tab. Reels live in Reels. Messages live in Messages.
                 </p>
               </div>
-              <div className="card heroSideCard">
+              <div className="feedProfileCard">
                 {user ? (
                   <>
                     <strong>{user.fullName}</strong>
                     <div className="muted">{user.tradeType ?? user.businessName ?? user.userTag}</div>
-                    <div style={{ marginTop: 10 }}>{user.trustBadge ?? user.verificationStatus}</div>
+                    <div className="pillRow" style={{ marginTop: 10 }}>
+                      <span className="pill">{user.trustBadge ?? user.verificationStatus}</span>
+                      <span className="pill">{user.userTag}</span>
+                    </div>
                     <button className="actionButton ghostButton" style={{ marginTop: 14 }} onClick={signOut}>
                       Sign out
                     </button>
                   </>
                 ) : (
                   <>
-                    <strong>Live auth ready</strong>
-                    <div className="muted">Use the seeded employer to test job posting.</div>
-                    <div style={{ marginTop: 10 }}>dispatch@northsidehvac.com</div>
+                    <strong>Live beta account</strong>
+                    <div className="muted">Login and post straight into the feed.</div>
+                    <div className="pillRow" style={{ marginTop: 10 }}>
+                      <span className="pill">dispatch@northsidehvac.com</span>
+                    </div>
                   </>
                 )}
               </div>
             </div>
 
-            <div className="tileGrid roleStrip">
-              {userOptions.map((option) => (
-                <button className="tile" key={option.tag} onClick={() => setSelectedTag(option.tag)}>
-                  <div className="badge">{option.tag === selectedTag ? "Selected role" : "Choose role"}</div>
-                  <h3>{option.title}</h3>
-                  <p className="muted">{option.description}</p>
-                </button>
-              ))}
+            <div className="feedMiniNav">
+              <button className={`miniNavButton ${selectedTag === "employee" ? "miniNavActive" : ""}`} onClick={() => setSelectedTag("employee")}>
+                Workers
+              </button>
+              <button className={`miniNavButton ${selectedTag === "employer" ? "miniNavActive" : ""}`} onClick={() => setSelectedTag("employer")}>
+                Employers
+              </button>
+              <button className={`miniNavButton ${selectedTag === "customer" ? "miniNavActive" : ""}`} onClick={() => setSelectedTag("customer")}>
+                Customers
+              </button>
+              <span className="muted feedMiniCopy">{roleCopy.summary}</span>
             </div>
           </section>
 
-          <section style={{ marginTop: 24 }} className="card socialShell">
-            <div className="headerRow">
-              <div>
-                <div className="badge">Feed page</div>
-                <h2 style={{ marginTop: 10 }}>Open LaborForce like a feed, not a classifieds board</h2>
-                <p className="muted" style={{ marginTop: 8 }}>
-                  Scroll the feed first, then jump between Feed, Reels, and Messages from the bottom bar.
-                </p>
-              </div>
-              <div className="badge">feed</div>
-            </div>
-            <div className="socialLayout" style={{ marginTop: 16 }}>
-            <div className="stack roomyStack">
+          <section style={{ marginTop: 24 }} className="socialShell">
+            <div className="feedPageLayout">
+              <div className="stack roomyStack">
               <div className="composerCard">
                 <div className="headerRow">
                   <strong>Share a work win</strong>
@@ -828,8 +825,22 @@ export function App() {
                   </div>
                 </article>
               ))}
-            </div>
-            <div className="stack sideRail">
+              </div>
+              <div className="stack sideRail">
+              <div className="card">
+                <h3>Quick jump</h3>
+                <div className="stack" style={{ marginTop: 12 }}>
+                  <button className="actionButton ghostButton" onClick={() => switchExperience("jobs")}>
+                    Open jobs page
+                  </button>
+                  <button className="actionButton ghostButton" onClick={() => switchExperience("reels")}>
+                    Open reels page
+                  </button>
+                  <button className="actionButton ghostButton" onClick={() => switchExperience("messages")}>
+                    Open messages
+                  </button>
+                </div>
+              </div>
               <div className="card">
                 <h3>Trending jobs</h3>
                 <div className="stack" style={{ marginTop: 12 }}>
@@ -845,7 +856,7 @@ export function App() {
                 <h3>Why this works</h3>
                 <p className="muted">People open apps for people. Jobs, hiring, and money move better when the home page feels alive.</p>
               </div>
-            </div>
+              </div>
             </div>
           </section>
 

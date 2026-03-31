@@ -101,6 +101,60 @@ textarea {
   grid-template-columns: minmax(0, 1.45fr) minmax(300px, 0.75fr);
 }
 
+.feedPageLayout {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: minmax(0, 1.7fr) minmax(260px, 0.7fr);
+}
+
+.feedHero {
+  display: grid;
+  gap: 20px;
+  padding: 22px 6px 4px;
+}
+
+.feedHeroRow {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: minmax(0, 1.5fr) minmax(260px, 0.75fr);
+  align-items: start;
+}
+
+.feedProfileCard {
+  border-radius: 22px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.92);
+  padding: 20px;
+  box-shadow: var(--shadow);
+}
+
+.feedMiniNav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.miniNavButton {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--text);
+  padding: 10px 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.miniNavActive {
+  border-color: transparent;
+  background: linear-gradient(135deg, #2274b9, #1f9a6d);
+  color: #ffffff;
+}
+
+.feedMiniCopy {
+  padding-left: 4px;
+}
+
 .heroSideCard {
   min-width: 280px;
 }
@@ -387,7 +441,7 @@ textarea:focus {
   transform: translateX(-50%);
   width: min(720px, calc(100% - 24px));
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 10px;
   padding: 10px;
   border-radius: 24px;
@@ -495,6 +549,8 @@ img {
     position: static;
   }
 
+  .feedHeroRow,
+  .feedPageLayout,
   .socialLayout,
   .reelsGrid,
   .feedGrid,
