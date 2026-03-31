@@ -1587,6 +1587,7 @@ export function App() {
             <div className="profileLayout" style={{ marginTop: 18 }}>
               <div className="stack">
                 <div className="profileHeroCard">
+                  <div className="profileBanner" />
                   <div className="profileHeroTop">
                     <div className="profileAvatar">
                       {user.profilePhotoUrl ? (
@@ -1597,14 +1598,28 @@ export function App() {
                     </div>
                     <div className="stack" style={{ gap: 8 }}>
                       <h2>{user.fullName}</h2>
+                      <div className="profileHandle">@{user.fullName.toLowerCase().replaceAll(" ", "")}</div>
                       <div className="muted">
                         {user.tradeType ?? user.businessName ?? user.userTag}
+                      </div>
+                      <div className="profileHeadline">
+                        {user.userTag === "employee"
+                          ? "Verified tradesperson building a public proof wall and real work reputation."
+                          : "Verified business profile showing active work, hiring needs, and public credibility."}
                       </div>
                       <div className="pillRow">
                         <span className="pill">{user.trustBadge ?? user.verificationStatus}</span>
                         <span className="pill">{user.userTag}</span>
                         {user.openToWork && <span className="pill">Open to work</span>}
                         {user.unionStatus && <span className="pill">{user.unionStatus}</span>}
+                      </div>
+                      <div className="profileActionRow">
+                        <button className="actionButton" type="button" onClick={() => switchExperience("messages")}>
+                          Message
+                        </button>
+                        <button className="actionButton ghostButton" type="button" onClick={() => switchExperience("feed")}>
+                          View posts
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -1639,6 +1654,33 @@ export function App() {
                       </div>
                     </>
                   )}
+                </div>
+
+                <div className="card">
+                  <div className="headerRow">
+                    <h3>Featured</h3>
+                    <div className="badge">Profile highlights</div>
+                  </div>
+                  <div className="profileFeatureGrid" style={{ marginTop: 14 }}>
+                    <div className="profileFeatureCard">
+                      <strong>About the work</strong>
+                      <p className="muted">
+                        {user.tradeType ?? "Trade"} professional with {user.yearsExperience ?? 0}+ years of field experience and a public body of work.
+                      </p>
+                    </div>
+                    <div className="profileFeatureCard">
+                      <strong>Proof wall style</strong>
+                      <p className="muted">
+                        Finished jobs, work wins, certifications, and short clips all build trust faster than resumes alone.
+                      </p>
+                    </div>
+                    <div className="profileFeatureCard">
+                      <strong>Hiring signal</strong>
+                      <p className="muted">
+                        Employers can review ratings, visible work, and profile details before reaching out or sending an offer.
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
                 {user.userTag === "employee" && (
