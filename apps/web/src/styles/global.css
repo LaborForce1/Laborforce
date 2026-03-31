@@ -1062,7 +1062,7 @@ img {
 
 @media (max-width: 960px) {
   .shell {
-    padding: 20px 16px 36px;
+    padding: 20px 16px 36px 132px;
   }
 
   .hero {
@@ -1092,6 +1092,26 @@ img {
     grid-template-columns: 1fr;
   }
 
+  .notificationsRail {
+    position: static;
+  }
+
+  .profileHeroTop,
+  .profileStats,
+  .profileFeatureGrid,
+  .networkCatchUpGrid,
+  .networkCards,
+  .pinnedGrid,
+  .proofGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .shell {
+    padding: 20px 16px 36px;
+  }
+
   .appTopNav {
     position: sticky;
     left: auto;
@@ -1111,19 +1131,5 @@ img {
 
   .appTopNavIcon {
     font-size: 0.82rem;
-  }
-
-  .notificationsRail {
-    position: static;
-  }
-
-  .profileHeroTop,
-  .profileStats,
-  .profileFeatureGrid,
-  .networkCatchUpGrid,
-  .networkCards,
-  .pinnedGrid,
-  .proofGrid {
-    grid-template-columns: 1fr;
   }
 }
