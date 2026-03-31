@@ -721,9 +721,6 @@ export function App() {
               <div>
                 <div className="badge">LaborForce Feed</div>
                 <h1 style={{ marginBottom: 10 }}>Tradespeople, crews, and work proof first</h1>
-                <p className="muted" style={{ maxWidth: 720 }}>
-                  The front page is now just the social side of LaborForce. Jobs live in the Jobs tab. Reels live in Reels. Messages live in Messages.
-                </p>
               </div>
               <div className="feedProfileCard">
                 {user ? (
