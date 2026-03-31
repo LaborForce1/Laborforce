@@ -865,20 +865,25 @@ export function App() {
 
       {activeExperience === "jobs" && (
         <>
-      <section className="card socialShell">
+      <section className="jobsHero">
         <div className="headerRow">
           <div>
             <div className="badge">Jobs page</div>
             <h2 style={{ marginTop: 10 }}>Hiring and job tools</h2>
             <p className="muted" style={{ marginTop: 8 }}>
-              Everything for logging in, posting work, applying, and reviewing applicants lives here.
+              Sign in, browse live jobs, post openings, and review applicants here.
             </p>
           </div>
-          <div className="badge">jobs</div>
+          <div className="pillRow">
+            <span className="pill">{jobs.length} live jobs</span>
+            <span className="pill">{incomingApplications.length} applicants</span>
+            <span className="pill">{unreadMessagesCount} unread</span>
+          </div>
         </div>
       </section>
 
-      <section style={{ marginTop: 28 }} className="feedGrid authGrid airyToolsGrid">
+      <section style={{ marginTop: 28 }} className="jobsPageLayout">
+        <div className="stack roomyStack">
         <div className="card">
           <div className="headerRow">
             <h2>{user ? "Account" : "Sign in or create account"}</h2>
@@ -1072,7 +1077,9 @@ export function App() {
             ))}
           </div>
         </div>
+        </div>
 
+        <div className="stack roomyStack">
         <div className="card">
           <div className="headerRow">
             <h2>Employer Job Post</h2>
@@ -1237,107 +1244,6 @@ export function App() {
             </div>
           )}
         </div>
-
-      </section>
-
-      <section style={{ marginTop: 24 }} className="statsGrid">
-        <div className="card">
-          <div className="muted">Beta focus</div>
-          <h3>Hiring flow</h3>
-          <div>Login, post a job, pay deposit, publish, and browse live listings.</div>
-        </div>
-        <div className="card">
-          <div className="muted">Coverage</div>
-          <h3>{jobsRadius} miles</h3>
-          <div>Jobs are currently filtered around a local radius and displayed by county location.</div>
-        </div>
-        <div className="card">
-          <div className="muted">Trust mechanic</div>
-          <h3>$20 deposit</h3>
-          <div>Required before publishing, with Stripe-ready checkout and a local fallback for development.</div>
-        </div>
-        <div className="card">
-          <div className="muted">Beta status</div>
-          <h3>{stripeReady ? "Stripe ready" : "Local payment fallback"}</h3>
-          <div>Core job posting is real. Community, CRM, and Quick Cash are intentionally not in beta yet.</div>
-        </div>
-      </section>
-
-      <section style={{ marginTop: 24 }} className="feedGrid betaGrid">
-        <div className="card">
-          <div className="headerRow">
-            <h2>Beta Scope</h2>
-            <div className="badge">What is live</div>
-          </div>
-          <div className="stack">
-            <div className="betaItem">
-              <strong>Working now</strong>
-              <p className="muted">Role-based signup and login, employer posting, county-based jobs, and deposit-based publishing.</p>
-            </div>
-            <div className="betaItem">
-              <strong>Good enough for beta</strong>
-              <p className="muted">Invite a small group of employers and workers, watch how they use the hiring flow, and fix friction quickly.</p>
-            </div>
-            <div className="betaItem">
-              <strong>Not in beta yet</strong>
-              <p className="muted">Quick Cash, social feed, CRM, AI assistant, and marketplace are still scaffolded and should stay out of the beta pitch.</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="headerRow">
-            <h2>Launch Checklist</h2>
-            <div className="badge">Next moves</div>
-          </div>
-          <div className="stack">
-            <div className="checkItem">
-              <span className="checkDot" />
-              <div>
-                <strong>GitHub repo is live</strong>
-                <div className="muted">Code is now shareable and ready for collaboration.</div>
-              </div>
-            </div>
-            <div className="checkItem">
-              <span className="checkDot" />
-              <div>
-                <strong>Database-backed jobs are live</strong>
-                <div className="muted">The beta loop is already reading and writing real data.</div>
-              </div>
-            </div>
-            <div className="checkItem">
-              <span className="checkDot pendingDot" />
-              <div>
-                <strong>Deploy backend and frontend</strong>
-                <div className="muted">Next cloud step so other people can test without your laptop running.</div>
-              </div>
-            </div>
-            <div className="checkItem">
-              <span className="checkDot pendingDot" />
-              <div>
-                <strong>Add real Stripe keys</strong>
-                <div className="muted">Switch deposit publishing from fallback mode to actual checkout.</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="headerRow">
-            <h2>Your Employer Snapshot</h2>
-            <div className="badge">Beta metrics</div>
-          </div>
-          <div className="stack">
-            <div className="pillRow">
-              <span className="pill">Draft jobs {employerDrafts.length}</span>
-              <span className="pill">Active jobs {employerActive.length}</span>
-              <span className="pill">Stripe {stripeReady ? "configured" : "not configured"}</span>
-            </div>
-            <p className="muted">
-              This section is here to keep the beta grounded in the real funnel. If a feature does not help someone sign in,
-              post a job, publish it, or browse it, it should probably wait until after beta.
-            </p>
-          </div>
         </div>
       </section>
         </>

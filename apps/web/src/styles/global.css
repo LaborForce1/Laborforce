@@ -107,6 +107,21 @@ textarea {
   grid-template-columns: minmax(0, 1.7fr) minmax(260px, 0.7fr);
 }
 
+.jobsPageLayout {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.95fr);
+  align-items: start;
+}
+
+.jobsHero {
+  border-radius: 24px;
+  border: 1px solid var(--line);
+  background: linear-gradient(125deg, rgba(34, 116, 185, 0.1), rgba(255, 255, 255, 0.98) 42%, rgba(31, 154, 109, 0.1) 100%);
+  padding: 24px;
+  box-shadow: var(--shadow);
+}
+
 .feedHero {
   display: grid;
   gap: 20px;
@@ -551,6 +566,7 @@ img {
 
   .feedHeroRow,
   .feedPageLayout,
+  .jobsPageLayout,
   .socialLayout,
   .reelsGrid,
   .feedGrid,
