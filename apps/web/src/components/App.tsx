@@ -92,6 +92,59 @@ interface SocialFormState {
   videoUrl: string;
 }
 
+interface MockReel {
+  id: string;
+  trade: string;
+  title: string;
+  description: string;
+  imageUrl: string;
+}
+
+const mockReels: MockReel[] = [
+  {
+    id: "reel-hvac",
+    trade: "HVAC",
+    title: "What HVAC Techs Actually Do",
+    description: "Install systems, troubleshoot airflow, handle refrigerant, and keep homes and buildings comfortable year-round.",
+    imageUrl: "https://images.unsplash.com/photo-1621905252507-b35492cc74b4?auto=format&fit=crop&w=900&q=80"
+  },
+  {
+    id: "reel-electrical",
+    trade: "Electrical",
+    title: "What Electricians Handle Daily",
+    description: "Run wire, upgrade panels, troubleshoot outages, install fixtures, and keep power safe and code-compliant.",
+    imageUrl: "https://images.unsplash.com/photo-1581092921461-eab62e97a780?auto=format&fit=crop&w=900&q=80"
+  },
+  {
+    id: "reel-plumbing",
+    trade: "Plumbing",
+    title: "What Plumbers Really Work On",
+    description: "Water lines, drain systems, fixtures, leak repairs, rough-ins, and keeping homes and businesses flowing right.",
+    imageUrl: "https://images.unsplash.com/photo-1620626011761-996317b8d101?auto=format&fit=crop&w=900&q=80"
+  },
+  {
+    id: "reel-carpentry",
+    trade: "Carpentry",
+    title: "What Carpenters Build",
+    description: "Frame walls, install trim, hang doors, build structures, and turn plans into finished spaces.",
+    imageUrl: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=900&q=80"
+  },
+  {
+    id: "reel-welding",
+    trade: "Welding",
+    title: "What Welders Do On the Job",
+    description: "Fabricate steel, repair equipment, join metal safely, and work across shops, plants, and field jobsites.",
+    imageUrl: "https://images.unsplash.com/photo-1517048676732-d65bc937f952?auto=format&fit=crop&w=900&q=80"
+  },
+  {
+    id: "reel-roofing",
+    trade: "Roofing",
+    title: "What Roofers Handle Every Week",
+    description: "Tear-offs, underlayment, flashing, shingle or membrane installs, and weatherproofing the top of the job.",
+    imageUrl: "https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=900&q=80"
+  }
+];
+
 function formatMoney(value: number) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -1299,18 +1352,19 @@ export function App() {
               </div>
             </div>
             <div className="reelsGrid">
-            {reelPosts.map((post, index) => (
-              <article key={post.id} className="reelCard">
-                {post.photoUrls[0] && <img className="reelImage" src={post.photoUrls[0]} alt={post.tradeTag} />}
+            {mockReels.map((reel, index) => (
+              <article key={reel.id} className="reelCard">
+                <img className="reelImage" src={reel.imageUrl} alt={reel.trade} />
                 <div className="reelOverlay">
                   <div className="badge">Reel #{index + 1}</div>
-                  <h3>{post.tradeTag} Reel</h3>
-                  <p>{post.postText}</p>
+                  <h3>{reel.title}</h3>
+                  <p>{reel.description}</p>
                   <div className="pillRow">
-                    <span className="pill">How-to</span>
-                    <span className="pill">Work proof</span>
-                    <span className="pill">Career tips</span>
+                    <span className="pill">{reel.trade}</span>
+                    <span className="pill">Trade explainer</span>
+                    <span className="pill">Mock video</span>
                   </div>
+                  <div className="reelPlayButton">Watch preview</div>
                 </div>
               </article>
             ))}
