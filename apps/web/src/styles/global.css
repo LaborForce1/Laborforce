@@ -525,6 +525,13 @@ textarea:focus {
   padding: 14px;
 }
 
+.networkMenuButton {
+  width: 100%;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
 .networkTabs {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -474,6 +474,7 @@ function createLocalSocialPost(args: {
 export function App() {
   const [activeExperience, setActiveExperience] = useState<"feed" | "network" | "jobs" | "reels" | "messages" | "notifications" | "profile" | "auth">("feed");
   const [activeNetworkTab, setActiveNetworkTab] = useState<NetworkTab>("grow");
+  const [activeNetworkTool, setActiveNetworkTool] = useState<NetworkToolView>("leads");
   const [selectedTag, setSelectedTag] = useState<UserTag>("employee");
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [authState, setAuthState] = useState<AuthResponse["credentials"] | null>(null);
@@ -711,6 +712,7 @@ export function App() {
   const networkAlerts = alerts
     .filter((alert) => alert.type === "network" || alert.type === "message")
     .slice(0, 4);
+  const notificationsSummary = buildNotificationsSummary(alerts, unreadMessagesCount);
 
   async function loadJobs() {
     setIsLoadingJobs(true);
@@ -1182,6 +1184,12 @@ export function App() {
     }
 
     switchExperience("notifications");
+  }
+
+  function openConversationWithCandidate(candidate: User) {
+    setSelectedRecipientId(candidate.id);
+    setSuccessMessage(`Ready to connect with ${candidate.fullName}.`);
+    switchExperience("messages");
   }
 
   function signOut() {
@@ -1984,22 +1992,41 @@ export function App() {
               <div className="card">
                 <h3>Manage my network</h3>
                 <div className="networkMenu" style={{ marginTop: 14 }}>
-                  <div className="networkMenuItem">
+                  <button
+                    className="networkMenuItem networkMenuButton"
+                    type="button"
+                    onClick={() => setActiveNetworkTab("catchUp")}
+                  >
                     <span>Connections</span>
                     <strong>{existingConnections.length}</strong>
-                  </div>
-                  <div className="networkMenuItem">
+                  </button>
+                  <button
+                    className="networkMenuItem networkMenuButton"
+                    type="button"
+                    onClick={() => setActiveNetworkTab("grow")}
+                  >
                     <span>Following</span>
                     <strong>{directoryUsers.length}</strong>
-                  </div>
-                  <div className="networkMenuItem">
+                  </button>
+                  <button
+                    className="networkMenuItem networkMenuButton"
+                    type="button"
+                    onClick={() => switchExperience("messages")}
+                  >
                     <span>Messages</span>
                     <strong>{conversations.length}</strong>
-                  </div>
-                  <div className="networkMenuItem">
+                  </button>
+                  <button
+                    className="networkMenuItem networkMenuButton"
+                    type="button"
+                    onClick={() => {
+                      setActiveNetworkTab("grow");
+                      setActiveNetworkTool("leads");
+                    }}
+                  >
                     <span>Verified people</span>
                     <strong>{directoryUsers.length}</strong>
-                  </div>
+                  </button>
                 </div>
               </div>
             </aside>
@@ -2196,10 +2223,7 @@ export function App() {
                               <button
                                 className="actionButton ghostButton"
                                 type="button"
-                                onClick={() => {
-                                  setSelectedRecipientId(candidate.id);
-                                  switchExperience("messages");
-                                }}
+                                onClick={() => openConversationWithCandidate(candidate)}
                               >
                                 Message
                               </button>
@@ -2230,10 +2254,7 @@ export function App() {
                         <button
                           className="actionButton ghostButton"
                           type="button"
-                          onClick={() => {
-                            setSelectedRecipientId(candidate.id);
-                            switchExperience("messages");
-                          }}
+                          onClick={() => openConversationWithCandidate(candidate)}
                         >
                           Message
                         </button>
@@ -2249,52 +2270,196 @@ export function App() {
                 <div className="networkToolsSidebar">
                   <div className="networkToolsGroup">
                     <div className="networkToolsLabel">Talent</div>
-                    <button className="networkToolsNavItem networkToolsNavActive">Find leads</button>
-                    <button className="networkToolsNavItem">Groups</button>
+                    <button
+                      className={`networkToolsNavItem ${activeNetworkTool === "leads" ? "networkToolsNavActive" : ""}`}
+                      type="button"
+                      onClick={() => setActiveNetworkTool("leads")}
+                    >
+                      Find leads
+                    </button>
+                    <button
+                      className={`networkToolsNavItem ${activeNetworkTool === "groups" ? "networkToolsNavActive" : ""}`}
+                      type="button"
+                      onClick={() => setActiveNetworkTool("groups")}
+                    >
+                      Groups
+                    </button>
                   </div>
                   <div className="networkToolsGroup">
                     <div className="networkToolsLabel">Hiring</div>
-                    <button className="networkToolsNavItem">Hire with AI</button>
-                    <button className="networkToolsNavItem">Talent insights</button>
+                    <button
+                      className={`networkToolsNavItem ${activeNetworkTool === "assistant" ? "networkToolsNavActive" : ""}`}
+                      type="button"
+                      onClick={() => setActiveNetworkTool("assistant")}
+                    >
+                      Hire with AI
+                    </button>
+                    <button
+                      className={`networkToolsNavItem ${activeNetworkTool === "insights" ? "networkToolsNavActive" : ""}`}
+                      type="button"
+                      onClick={() => setActiveNetworkTool("insights")}
+                    >
+                      Talent insights
+                    </button>
                   </div>
                   <div className="networkToolsGroup">
                     <div className="networkToolsLabel">Sales</div>
-                    <button className="networkToolsNavItem">Services marketplace</button>
+                    <button
+                      className={`networkToolsNavItem ${activeNetworkTool === "marketplace" ? "networkToolsNavActive" : ""}`}
+                      type="button"
+                      onClick={() => setActiveNetworkTool("marketplace")}
+                    >
+                      Services marketplace
+                    </button>
                   </div>
                 </div>
                 <div className="networkToolsContent">
-                  <div className="networkToolsItem">
-                    <strong>Hire on LaborForce</strong>
-                    <span className="muted">Find, attract, and recruit verified trade talent.</span>
-                  </div>
-                  <div className="networkToolsItem">
-                    <strong>Sell with LaborForce</strong>
-                    <span className="muted">Build relationships with homeowners, property managers, and trade buyers.</span>
-                  </div>
-                  <div className="networkToolsItem">
-                    <strong>Post a job</strong>
-                    <span className="muted">Create openings, publish them, and collect real applicants.</span>
-                  </div>
-                  <div className="networkToolsItem">
-                    <strong>Advertise your business</strong>
-                    <span className="muted">Use your feed, reels, and proof wall to grow your trade business.</span>
-                  </div>
-                  <div className="networkToolsItem">
-                    <strong>Get started with Premium</strong>
-                    <span className="muted">Unlock CRM, AI tools, unlimited proof wall uploads, and extra visibility.</span>
-                  </div>
-                  <div className="networkToolsItem">
-                    <strong>Learn with LaborForce</strong>
-                    <span className="muted">Trade explainers, work tips, and training-style reels for your crew.</span>
-                  </div>
-                  <div className="networkToolsItem">
-                    <strong>Admin center</strong>
-                    <span className="muted">Manage billing, profile controls, and company account details.</span>
-                  </div>
-                  <div className="networkToolsItem">
-                    <strong>Create a company page</strong>
-                    <span className="muted">Give your business a public profile with jobs, proof wall, and trusted badges.</span>
-                  </div>
+                  {activeNetworkTool === "leads" && (
+                    <>
+                      <div className="networkToolsItem">
+                        <strong>Hire on LaborForce</strong>
+                        <span className="muted">Find, attract, and recruit verified trade talent already close to your market.</span>
+                        <div className="pillRow">
+                          <button className="actionButton ghostButton" type="button" onClick={() => switchExperience("jobs")}>
+                            Open jobs
+                          </button>
+                          <button className="actionButton ghostButton" type="button" onClick={() => setActiveNetworkTab("grow")}>
+                            View people
+                          </button>
+                        </div>
+                      </div>
+                      {connectionSuggestions.slice(0, 3).map((candidate) => (
+                        <div key={candidate.id} className="networkToolsItem">
+                          <strong>{candidate.fullName}</strong>
+                          <span className="muted">{candidate.tradeType ?? candidate.businessName ?? candidate.userTag}</span>
+                          <span className="muted">{candidate.trustBadge ?? candidate.verificationStatus}</span>
+                          <div className="pillRow">
+                            <button className="actionButton ghostButton" type="button" onClick={() => openConversationWithCandidate(candidate)}>
+                              Connect
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )}
+
+                  {activeNetworkTool === "groups" && (
+                    <>
+                      <div className="networkToolsItem">
+                        <strong>Trade groups</strong>
+                        <span className="muted">Build relationships by trade, city, and type of work instead of cold outreach.</span>
+                      </div>
+                      <div className="networkToolsItem">
+                        <strong>Electricians and service techs</strong>
+                        <span className="muted">Good for referrals, overflow work, and same-day availability posts.</span>
+                        <div className="pillRow">
+                          <button className="actionButton ghostButton" type="button" onClick={() => switchExperience("feed")}>
+                            Open feed
+                          </button>
+                        </div>
+                      </div>
+                      <div className="networkToolsItem">
+                        <strong>General contractors and crews</strong>
+                        <span className="muted">Best place to turn consistent networking into repeat jobs.</span>
+                        <div className="pillRow">
+                          <button className="actionButton ghostButton" type="button" onClick={() => switchExperience("jobs")}>
+                            Open jobs
+                          </button>
+                        </div>
+                      </div>
+                      <div className="networkToolsItem">
+                        <strong>Property managers and owners</strong>
+                        <span className="muted">Useful if you want longer maintenance relationships, not just one-offs.</span>
+                        <div className="pillRow">
+                          <button className="actionButton ghostButton" type="button" onClick={() => switchExperience("messages")}>
+                            Open messages
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {activeNetworkTool === "assistant" && (
+                    <>
+                      <div className="networkToolsItem">
+                        <strong>Hire with AI</strong>
+                        <span className="muted">{assistantStarterMessages[0]?.body}</span>
+                      </div>
+                      <div className="networkToolsItem">
+                        <strong>Best first message</strong>
+                        <span className="muted">{buildAssistantReply("help me write a network message", { user, notificationsSummary, socialPosts, unreadMessagesCount })}</span>
+                        <div className="pillRow">
+                          <button className="actionButton ghostButton" type="button" onClick={() => switchExperience("messages")}>
+                            Open messages
+                          </button>
+                        </div>
+                      </div>
+                      <div className="networkToolsItem">
+                        <strong>Best marketing move</strong>
+                        <span className="muted">{buildAssistantReply("marketing lead promote", { user, notificationsSummary, socialPosts, unreadMessagesCount })}</span>
+                        <div className="pillRow">
+                          <button className="actionButton ghostButton" type="button" onClick={() => switchExperience("feed")}>
+                            Open feed
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {activeNetworkTool === "insights" && (
+                    <>
+                      <div className="networkToolsItem">
+                        <strong>Talent insights</strong>
+                        <span className="muted">{notificationsSummary}</span>
+                      </div>
+                      <div className="networkToolsItem">
+                        <strong>{directoryUsers.length} verified people available</strong>
+                        <span className="muted">This is your current pool for networking, referrals, and outreach.</span>
+                      </div>
+                      <div className="networkToolsItem">
+                        <strong>{conversations.length} active conversations</strong>
+                        <span className="muted">These are already-open relationships you can move into work fast.</span>
+                        <div className="pillRow">
+                          <button className="actionButton ghostButton" type="button" onClick={() => switchExperience("messages")}>
+                            Open inbox
+                          </button>
+                          <button className="actionButton ghostButton" type="button" onClick={() => switchExperience("notifications")}>
+                            Open alerts
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {activeNetworkTool === "marketplace" && (
+                    <>
+                      <div className="networkToolsItem">
+                        <strong>Services marketplace</strong>
+                        <span className="muted">Turn your profile, reels, and proof wall into a storefront people can trust fast.</span>
+                      </div>
+                      <div className="networkToolsItem">
+                        <strong>Advertise your business</strong>
+                        <span className="muted">Use posts, reels, and clean work proof to stay visible in your market.</span>
+                        <div className="pillRow">
+                          <button className="actionButton ghostButton" type="button" onClick={() => switchExperience("feed")}>
+                            Open feed
+                          </button>
+                          <button className="actionButton ghostButton" type="button" onClick={() => switchExperience("reels")}>
+                            Open reels
+                          </button>
+                        </div>
+                      </div>
+                      <div className="networkToolsItem">
+                        <strong>Create a company page</strong>
+                        <span className="muted">Build out your LaborForce profile so people can trust what they see at a glance.</span>
+                        <div className="pillRow">
+                          <button className="actionButton ghostButton" type="button" onClick={() => switchExperience("profile")}>
+                            Open profile
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
