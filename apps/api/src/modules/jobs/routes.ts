@@ -128,3 +128,70 @@ jobsRouter.post("/:jobId/publish", requireAuth, asyncHandler(async (req: AuthedR
     message: "Draft published. Replace this with a Stripe deposit confirmation in production."
   });
 }));
+
+jobsRouter.patch("/:jobId", requireAuth, asyncHandler(async (req: AuthedRequest, res) => {
+  const { jobId } = z.object({
+    jobId: z.string().uuid()
+  }).parse(req.params);
+
+  const payload = z.object({
+    jobTitle: z.string(),
+    tradeCategory: z.string(),
+    description: z.string(),
+    hourlyRateMin: z.number(),
+    hourlyRateMax: z.number(),
+    jobType: z.string(),
+    benefits: z.string().optional(),
+    countyLocation: z.string().min(2),
+    unionRequired: z.boolean().optional(),
+    certificationsRequired: z.array(z.string()).optional()
+  }).parse(req.body);
+
+  const user = await usersRepository.findById(req.userId ?? "");
+  if (!user) {
+    throw new HttpError(404, "User not found.");
+  }
+
+  if (user.userTag !== "employer") {
+    throw new HttpError(403, "Only employers can edit job listings.");
+  }
+
+  const updatedJob = await jobsRepository.updateForEmployer(jobId, user.id, payload);
+  if (!updatedJob) {
+    throw new HttpError(404, "Job not found for this employer.");
+  }
+
+  res.json({
+    job: updatedJob,
+    message: "Job updated."
+  });
+}));
+
+jobsRouter.patch("/:jobId/status", requireAuth, asyncHandler(async (req: AuthedRequest, res) => {
+  const { jobId } = z.object({
+    jobId: z.string().uuid()
+  }).parse(req.params);
+
+  const payload = z.object({
+    status: z.enum(["filled", "closed"])
+  }).parse(req.body);
+
+  const user = await usersRepository.findById(req.userId ?? "");
+  if (!user) {
+    throw new HttpError(404, "User not found.");
+  }
+
+  if (user.userTag !== "employer") {
+    throw new HttpError(403, "Only employers can manage job status.");
+  }
+
+  const updatedJob = await jobsRepository.updateStatusForEmployer(jobId, user.id, payload.status);
+  if (!updatedJob) {
+    throw new HttpError(404, "Job not found for this employer.");
+  }
+
+  res.json({
+    job: updatedJob,
+    message: `Job marked as ${payload.status}.`
+  });
+}));
