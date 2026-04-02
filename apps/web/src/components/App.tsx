@@ -49,6 +49,19 @@ interface ProfileUpdateResponse {
   message: string;
 }
 
+interface VerificationStatusResponse {
+  personaReady: boolean;
+  flow: string;
+  statuses: string[];
+}
+
+interface BusinessVerificationResponse {
+  user: User;
+  personaReady: boolean;
+  mode: "persona_connected" | "development_simulation";
+  message: string;
+}
+
 interface AuthFormState {
   fullName: string;
   businessName: string;
@@ -197,6 +210,8 @@ export function App() {
   const [applyForms, setApplyForms] = useState<Record<string, string>>({});
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [verificationFlow, setVerificationFlow] = useState<string>("");
+  const [personaReady, setPersonaReady] = useState(false);
   const [isBooting, setIsBooting] = useState(true);
   const [isLoadingJobs, setIsLoadingJobs] = useState(false);
   const [isLoadingThread, setIsLoadingThread] = useState(false);
@@ -207,6 +222,7 @@ export function App() {
   const [updatingApplicationId, setUpdatingApplicationId] = useState<string | null>(null);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isCompletingVerification, setIsCompletingVerification] = useState(false);
 
   const applicationMap = useMemo(
     () => new Map(applications.map((application) => [application.jobListingId, application])),
@@ -253,6 +269,7 @@ export function App() {
 
   useEffect(() => {
     void loadJobs();
+    void loadVerificationStatus();
   }, [driveRadius, authState?.accessToken]);
 
   useEffect(() => {
@@ -328,6 +345,17 @@ export function App() {
       setErrorMessage(error instanceof Error ? error.message : "Unable to load jobs.");
     } finally {
       setIsLoadingJobs(false);
+    }
+  }
+
+  async function loadVerificationStatus() {
+    try {
+      const response = await apiGet<VerificationStatusResponse>("/verification/status");
+      setPersonaReady(response.personaReady);
+      setVerificationFlow(response.flow);
+    } catch {
+      setPersonaReady(false);
+      setVerificationFlow("");
     }
   }
 
@@ -611,11 +639,52 @@ export function App() {
       );
 
       setUser(response.user);
-      setSuccessMessage(response.message);
+      if (response.user.userTag === "employer" && !response.user.isBusinessVerified) {
+        setSuccessMessage("Profile updated. Next step: complete business verification so you can publish jobs.");
+      } else if (response.user.userTag === "employee") {
+        setSuccessMessage("Profile updated. Next step: browse jobs and apply.");
+      } else {
+        setSuccessMessage(response.message);
+      }
+
+      if (response.user.userTag === "employer") {
+        setActiveView("profile");
+      } else {
+        setActiveView("jobs");
+      }
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Unable to update profile.");
     } finally {
       setIsSavingProfile(false);
+    }
+  }
+
+  async function handleCompleteBusinessVerification() {
+    if (!authState?.accessToken || !user) {
+      return;
+    }
+
+    setIsCompletingVerification(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    try {
+      const response = await apiPost<BusinessVerificationResponse>(
+        "/verification/business/complete",
+        {
+          businessName: profileForm.businessName || user.businessName || null
+        },
+        authState.accessToken
+      );
+
+      setUser(response.user);
+      setSuccessMessage(response.message);
+      await loadJobs();
+      await loadEmployerJobs(authState.accessToken);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Unable to complete business verification.");
+    } finally {
+      setIsCompletingVerification(false);
     }
   }
 
@@ -939,8 +1008,27 @@ export function App() {
                 <span className="pill">{employerActiveJobs.length} active</span>
               </div>
               <p className="muted" style={{ marginTop: 12 }}>
-                Employers must be business verified before posting jobs successfully.
+                Employers must be business verified before publishing jobs successfully.
               </p>
+              {user?.userTag === "employer" && !user.isBusinessVerified && (
+                <>
+                  <p className="muted" style={{ marginTop: 12 }}>
+                    {personaReady
+                      ? "Persona is connected. Complete verification to unlock job publishing."
+                      : "Persona is not connected, so verification runs in development mode for now."}
+                  </p>
+                  {verificationFlow && <p className="muted" style={{ marginTop: 12 }}>{verificationFlow}</p>}
+                  <button
+                    className="actionButton"
+                    style={{ marginTop: 12 }}
+                    type="button"
+                    disabled={isCompletingVerification}
+                    onClick={() => void handleCompleteBusinessVerification()}
+                  >
+                    {isCompletingVerification ? "Verifying..." : "Complete business verification"}
+                  </button>
+                </>
+              )}
             </div>
 
             {user?.userTag === "employer" && (
@@ -1261,6 +1349,30 @@ export function App() {
                 ))}
               </div>
             </div>
+
+            {user?.userTag === "employer" && (
+              <div className="card">
+                <h3>Business verification</h3>
+                <div className="pillRow" style={{ marginTop: 12 }}>
+                  <span className="pill">{user.isBusinessVerified ? "Business verified" : "Verification pending"}</span>
+                  <span className="pill">{personaReady ? "Persona connected" : "Dev mode"}</span>
+                </div>
+                <p className="muted" style={{ marginTop: 12 }}>
+                  {verificationFlow || "Verification checks business documents before employers can publish jobs."}
+                </p>
+                {!user.isBusinessVerified && (
+                  <button
+                    className="actionButton"
+                    style={{ marginTop: 12 }}
+                    type="button"
+                    disabled={isCompletingVerification}
+                    onClick={() => void handleCompleteBusinessVerification()}
+                  >
+                    {isCompletingVerification ? "Verifying..." : "Complete business verification"}
+                  </button>
+                )}
+              </div>
+            )}
 
             <div className="card">
               <h3>Next best step</h3>

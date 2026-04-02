@@ -51,6 +51,10 @@ export interface UpdateProfileInput {
   profilePhotoUrl?: string | null;
 }
 
+export interface CompleteBusinessVerificationInput {
+  businessName?: string | null;
+}
+
 function toNullableNumber(value: string | null): number | null {
   return value === null ? null : Number(value);
 }
@@ -242,6 +246,50 @@ export const usersRepository = {
         input.openToWork,
         input.profilePhotoUrl ?? null
       ]
+    );
+
+    const row = result.rows[0];
+    return row ? mapUser(row) : null;
+  },
+
+  async completeBusinessVerification(id: string, input: CompleteBusinessVerificationInput = {}) {
+    const result = await query<UserRow>(
+      `
+        UPDATE users
+        SET
+          business_name = COALESCE(NULLIF($2, ''), business_name),
+          is_business_verified = TRUE,
+          is_verified = TRUE,
+          verification_status = 'verified',
+          updated_at = NOW()
+        WHERE id = $1
+        RETURNING
+          id,
+          email,
+          password_hash,
+          full_name,
+          phone,
+          zip_code,
+          user_tag,
+          trade_type,
+          is_verified,
+          is_premium,
+          verification_status,
+          profile_photo_url,
+          bio,
+          years_experience,
+          hourly_rate,
+          open_to_work,
+          rating_average,
+          rating_count,
+          trust_badge,
+          union_status,
+          latitude,
+          longitude,
+          is_business_verified,
+          business_name
+      `,
+      [id, input.businessName ?? null]
     );
 
     const row = result.rows[0];
