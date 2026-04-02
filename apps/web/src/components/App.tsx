@@ -92,7 +92,6 @@ interface ProfileFormState {
   yearsExperience: string;
   hourlyRate: string;
   unionStatus: string;
-  profilePhotoUrl: string;
   openToWork: boolean;
 }
 
@@ -126,7 +125,6 @@ const emptyProfileForm: ProfileFormState = {
   yearsExperience: "",
   hourlyRate: "",
   unionStatus: "",
-  profilePhotoUrl: "",
   openToWork: false
 };
 
@@ -163,10 +161,6 @@ function buildProfileChecklist(user: User | null) {
     {
       label: "Write a short bio",
       complete: Boolean(user.bio?.trim())
-    },
-    {
-      label: "Add a profile photo URL",
-      complete: Boolean(user.profilePhotoUrl?.trim())
     }
   ];
 
@@ -320,7 +314,6 @@ export function App() {
       yearsExperience: user.yearsExperience?.toString() ?? "",
       hourlyRate: user.hourlyRate?.toString() ?? "",
       unionStatus: user.unionStatus ?? "",
-      profilePhotoUrl: user.profilePhotoUrl ?? "",
       openToWork: user.openToWork
     });
   }, [user]);
@@ -632,7 +625,6 @@ export function App() {
           yearsExperience: profileForm.yearsExperience ? Number(profileForm.yearsExperience) : null,
           hourlyRate: profileForm.hourlyRate ? Number(profileForm.hourlyRate) : null,
           unionStatus: profileForm.unionStatus || null,
-          profilePhotoUrl: profileForm.profilePhotoUrl || null,
           openToWork: profileForm.openToWork
         },
         authState.accessToken
@@ -1319,10 +1311,6 @@ export function App() {
                     <label className="field">
                       <span>Union status</span>
                       <input value={profileForm.unionStatus} onChange={(event) => setProfileForm((current) => ({ ...current, unionStatus: event.target.value }))} />
-                    </label>
-                    <label className="field">
-                      <span>Profile photo URL</span>
-                      <input value={profileForm.profilePhotoUrl} onChange={(event) => setProfileForm((current) => ({ ...current, profilePhotoUrl: event.target.value }))} />
                     </label>
                   </div>
                   <label className="profileToggle">
