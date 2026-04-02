@@ -169,7 +169,7 @@ export const jobsRepository = {
     const result = await query<JobListingRow>(
       `
         ${selectFields}
-        WHERE status IN ('active', 'draft')
+        WHERE status = 'active'
         ORDER BY is_surge DESC, posted_at DESC
         LIMIT $1
       `,
@@ -204,6 +204,25 @@ export const jobsRepository = {
     });
 
     return filteredJobs.slice(0, options.limit);
+  },
+
+  async listByEmployer(employerId: string) {
+    const result = await query<JobListingRow>(
+      `
+        ${selectFields}
+        WHERE employer_id = $1
+        ORDER BY
+          CASE status
+            WHEN 'draft' THEN 0
+            WHEN 'active' THEN 1
+            ELSE 2
+          END,
+          posted_at DESC
+      `,
+      [employerId]
+    );
+
+    return result.rows.map(mapJob);
   },
 
   async findById(id: string) {

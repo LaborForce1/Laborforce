@@ -1,6 +1,8 @@
 import type { ApplicationStatus, EmployerApplicationView, JobApplication } from "@laborforce/shared";
 import { query } from "../../db/query.js";
 
+type ApplicantJobSummary = NonNullable<JobApplication["job"]>;
+
 interface ApplicationRow {
   id: string;
   applicant_id: string;
@@ -9,6 +11,12 @@ interface ApplicationRow {
   message: string | null;
   applied_at: Date;
   employer_viewed: boolean;
+  job_title: string;
+  trade_category: string;
+  county_location: string | null;
+  job_status: ApplicantJobSummary["status"];
+  hourly_rate_min: string;
+  hourly_rate_max: string;
 }
 
 interface EmployerApplicationRow {
@@ -38,7 +46,16 @@ function mapApplication(row: ApplicationRow): JobApplication {
     status: row.status,
     message: row.message,
     appliedAt: row.applied_at.toISOString(),
-    employerViewed: row.employer_viewed
+    employerViewed: row.employer_viewed,
+    job: {
+      id: row.job_listing_id,
+      jobTitle: row.job_title,
+      tradeCategory: row.trade_category,
+      countyLocation: row.county_location ?? "County not set",
+      status: row.job_status,
+      hourlyRateMin: Number(row.hourly_rate_min),
+      hourlyRateMax: Number(row.hourly_rate_max)
+    }
   };
 }
 
@@ -72,14 +89,21 @@ export const applicationsRepository = {
     const result = await query<ApplicationRow>(
       `
         SELECT
-          id,
-          applicant_id,
-          job_listing_id,
-          status,
-          message,
-          applied_at,
-          employer_viewed
+          applications.id,
+          applications.applicant_id,
+          applications.job_listing_id,
+          applications.status,
+          applications.message,
+          applications.applied_at,
+          applications.employer_viewed,
+          job_listings.job_title,
+          job_listings.trade_category,
+          COALESCE(job_listings.county_location, job_listings.location_zip) AS county_location,
+          job_listings.status AS job_status,
+          job_listings.hourly_rate_min,
+          job_listings.hourly_rate_max
         FROM applications
+        INNER JOIN job_listings ON job_listings.id = applications.job_listing_id
         WHERE applicant_id = $1
         ORDER BY applied_at DESC
       `,
@@ -168,14 +192,21 @@ export const applicationsRepository = {
     const result = await query<ApplicationRow>(
       `
         SELECT
-          id,
-          applicant_id,
-          job_listing_id,
-          status,
-          message,
-          applied_at,
-          employer_viewed
+          applications.id,
+          applications.applicant_id,
+          applications.job_listing_id,
+          applications.status,
+          applications.message,
+          applications.applied_at,
+          applications.employer_viewed,
+          job_listings.job_title,
+          job_listings.trade_category,
+          COALESCE(job_listings.county_location, job_listings.location_zip) AS county_location,
+          job_listings.status AS job_status,
+          job_listings.hourly_rate_min,
+          job_listings.hourly_rate_max
         FROM applications
+        INNER JOIN job_listings ON job_listings.id = applications.job_listing_id
         WHERE applicant_id = $1 AND job_listing_id = $2
         LIMIT 1
       `,
@@ -187,7 +218,7 @@ export const applicationsRepository = {
   },
 
   async create(applicantId: string, jobListingId: string, message?: string) {
-    const result = await query<ApplicationRow>(
+    const result = await query<{ id: string }>(
       `
         INSERT INTO applications (
           applicant_id,
@@ -196,13 +227,7 @@ export const applicationsRepository = {
         )
         VALUES ($1, $2, $3)
         RETURNING
-          id,
-          applicant_id,
-          job_listing_id,
-          status,
-          message,
-          applied_at,
-          employer_viewed
+          id
       `,
       [applicantId, jobListingId, message ?? null]
     );
@@ -216,6 +241,12 @@ export const applicationsRepository = {
       [jobListingId]
     );
 
-    return mapApplication(result.rows[0]);
+    const createdApplication = await this.findByApplicantAndJob(applicantId, jobListingId);
+
+    if (!createdApplication) {
+      throw new Error(`Application ${result.rows[0]?.id ?? ""} was created but could not be reloaded.`);
+    }
+
+    return createdApplication;
   }
 };

@@ -9,6 +9,21 @@ import { authService } from "../../services/authService.js";
 
 export const jobsRouter = Router();
 
+jobsRouter.get("/mine", requireAuth, asyncHandler(async (req: AuthedRequest, res) => {
+  const user = await usersRepository.findById(req.userId ?? "");
+  if (!user) {
+    throw new HttpError(404, "User not found.");
+  }
+
+  if (user.userTag !== "employer") {
+    throw new HttpError(403, "Only employers can view their private job list.");
+  }
+
+  res.json({
+    items: await jobsRepository.listByEmployer(user.id)
+  });
+}));
+
 jobsRouter.get("/", asyncHandler(async (req, res) => {
   const limit = z.coerce.number().int().min(1).max(100).default(25).parse(req.query.limit ?? 25);
   const radiusMiles = z.coerce.number().int().min(10).max(100).default(50).parse(req.query.radiusMiles ?? 50);
@@ -65,10 +80,6 @@ jobsRouter.post("/", requireAuth, asyncHandler(async (req: AuthedRequest, res) =
     throw new HttpError(403, "Only employers can create job listings.");
   }
 
-  if (!user.isBusinessVerified) {
-    throw new HttpError(403, "Employer must complete business verification before posting jobs.");
-  }
-
   const job = await jobsRepository.create({
     employerId: user.id,
     ...payload
@@ -76,7 +87,9 @@ jobsRouter.post("/", requireAuth, asyncHandler(async (req: AuthedRequest, res) =
 
   res.status(201).json({
     job,
-    nextStep: "Collect the $20 Stripe deposit, then transition the listing from draft to active."
+    nextStep: user.isBusinessVerified
+      ? "Draft saved. Publish when you are ready to make it visible."
+      : "Draft saved. Complete business verification before publishing it."
   });
 }));
 
@@ -97,6 +110,10 @@ jobsRouter.post("/:jobId/publish", requireAuth, asyncHandler(async (req: AuthedR
 
   if (job.employerId !== user.id) {
     throw new HttpError(403, "You can only publish your own job listings.");
+  }
+
+  if (!user.isBusinessVerified) {
+    throw new HttpError(403, "Complete business verification before publishing this job.");
   }
 
   if (job.status !== "draft") {
