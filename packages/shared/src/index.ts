@@ -97,6 +97,22 @@ export interface SocialPost {
   createdAt: string;
 }
 
+export interface SocialFeedAuthor {
+  id: string;
+  fullName: string;
+  userTag: UserTag;
+  tradeType?: string | null;
+  businessName?: string | null;
+  profilePhotoUrl?: string | null;
+  verificationStatus: VerificationStatus;
+  isVerified: boolean;
+  trustBadge?: TrustBadge | null;
+}
+
+export interface SocialFeedItem extends SocialPost {
+  author: SocialFeedAuthor;
+}
+
 export interface CRMContact {
   id: string;
   ownerId: string;

@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import type { EmployerApplicationView, JobApplication, JobListing, Message, MessageConversation, User, UserTag } from "@laborforce/shared";
+import type { EmployerApplicationView, JobApplication, JobListing, Message, MessageConversation, SocialFeedItem, User, UserTag } from "@laborforce/shared";
 import { apiGet, apiPatch, apiPost } from "../api/client";
 
 const AUTH_STORAGE_KEY = "laborforce-web-auth";
 
-type View = "overview" | "auth" | "jobs" | "applications" | "messages" | "profile";
+type View = "feed" | "auth" | "jobs" | "applications" | "messages" | "profile";
 type AuthMode = "login" | "signup";
 
 interface AuthCredentials {
@@ -20,6 +20,12 @@ interface AuthResponse {
 interface JobsResponse {
   radiusMiles: number;
   items: JobListing[];
+}
+
+interface FeedResponse {
+  audience: string;
+  reactions: string[];
+  items: SocialFeedItem[];
 }
 
 interface EmployerJobsResponse {
@@ -47,6 +53,10 @@ interface ThreadResponse {
 interface ProfileUpdateResponse {
   user: User;
   message: string;
+}
+
+interface CreateFeedPostResponse {
+  post: SocialFeedItem;
 }
 
 interface VerificationStatusResponse {
@@ -95,6 +105,15 @@ interface ProfileFormState {
   openToWork: boolean;
 }
 
+interface FeedFormState {
+  postText: string;
+  photoUrl: string;
+  videoUrl: string;
+  tradeTag: string;
+  locationDisplay: string;
+  isProofWall: boolean;
+}
+
 const emptyAuthForm: AuthFormState = {
   fullName: "",
   businessName: "",
@@ -128,6 +147,15 @@ const emptyProfileForm: ProfileFormState = {
   openToWork: false
 };
 
+const emptyFeedForm: FeedFormState = {
+  postText: "",
+  photoUrl: "",
+  videoUrl: "",
+  tradeTag: "",
+  locationDisplay: "",
+  isProofWall: false
+};
+
 function formatMoney(value: number) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -142,6 +170,24 @@ function formatStatus(status: string) {
 
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString();
+}
+
+function formatDateTime(value: string) {
+  return new Date(value).toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  });
+}
+
+function buildInitials(name: string) {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
 }
 
 function buildProfileChecklist(user: User | null) {
@@ -182,11 +228,12 @@ function buildProfileChecklist(user: User | null) {
 }
 
 export function App() {
-  const [activeView, setActiveView] = useState<View>("overview");
+  const [activeView, setActiveView] = useState<View>("feed");
   const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [selectedTag, setSelectedTag] = useState<UserTag>("employee");
   const [authState, setAuthState] = useState<AuthCredentials | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const [feedPosts, setFeedPosts] = useState<SocialFeedItem[]>([]);
   const [jobs, setJobs] = useState<JobListing[]>([]);
   const [employerJobs, setEmployerJobs] = useState<JobListing[]>([]);
   const [jobsRadius, setJobsRadius] = useState(50);
@@ -204,6 +251,7 @@ export function App() {
   const [jobForm, setJobForm] = useState<JobFormState>(emptyJobForm);
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
   const [profileForm, setProfileForm] = useState<ProfileFormState>(emptyProfileForm);
+  const [feedForm, setFeedForm] = useState<FeedFormState>(emptyFeedForm);
   const [applyForms, setApplyForms] = useState<Record<string, string>>({});
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -211,8 +259,10 @@ export function App() {
   const [personaReady, setPersonaReady] = useState(false);
   const [isBooting, setIsBooting] = useState(true);
   const [isLoadingJobs, setIsLoadingJobs] = useState(false);
+  const [isLoadingFeed, setIsLoadingFeed] = useState(false);
   const [isLoadingThread, setIsLoadingThread] = useState(false);
   const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
+  const [isPostingFeed, setIsPostingFeed] = useState(false);
   const [isPostingJob, setIsPostingJob] = useState(false);
   const [isApplyingJobId, setIsApplyingJobId] = useState<string | null>(null);
   const [publishingJobId, setPublishingJobId] = useState<string | null>(null);
@@ -296,6 +346,7 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    void loadFeed();
     void loadJobs();
     void loadVerificationStatus();
   }, [driveRadius, authState?.accessToken]);
@@ -350,6 +401,12 @@ export function App() {
       unionStatus: user.unionStatus ?? "",
       openToWork: user.openToWork
     });
+
+    setFeedForm((current) => ({
+      ...current,
+      tradeTag: current.tradeTag || user.tradeType || user.businessName || user.userTag,
+      locationDisplay: current.locationDisplay || user.zipCode || ""
+    }));
   }, [user]);
 
   useEffect(() => {
@@ -360,6 +417,19 @@ export function App() {
 
     void loadThread(authState.accessToken, selectedRecipientId);
   }, [authState, selectedRecipientId]);
+
+  async function loadFeed() {
+    setIsLoadingFeed(true);
+
+    try {
+      const response = await apiGet<FeedResponse>("/social/feed", authState?.accessToken);
+      setFeedPosts(response.items);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Unable to load the feed.");
+    } finally {
+      setIsLoadingFeed(false);
+    }
+  }
 
   async function loadJobs() {
     setIsLoadingJobs(true);
@@ -582,6 +652,45 @@ export function App() {
     setJobForm(emptyJobForm);
   }
 
+  async function handleCreateFeedPost(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!authState?.accessToken) {
+      setErrorMessage("Sign in before posting to the feed.");
+      return;
+    }
+
+    setIsPostingFeed(true);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    try {
+      const response = await apiPost<CreateFeedPostResponse>(
+        "/social/feed",
+        {
+          postText: feedForm.postText.trim(),
+          photoUrls: feedForm.photoUrl.trim() ? [feedForm.photoUrl.trim()] : undefined,
+          videoUrl: feedForm.videoUrl.trim() || undefined,
+          tradeTag: feedForm.tradeTag.trim() || undefined,
+          locationDisplay: feedForm.locationDisplay.trim() || undefined,
+          isProofWall: feedForm.isProofWall
+        },
+        authState.accessToken
+      );
+
+      setFeedPosts((current) => [response.post, ...current]);
+      setFeedForm((current) => ({
+        ...emptyFeedForm,
+        tradeTag: current.tradeTag,
+        locationDisplay: current.locationDisplay
+      }));
+      setSuccessMessage("Post published to the feed.");
+      setActiveView("feed");
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Unable to post to the feed.");
+    } finally {
+      setIsPostingFeed(false);
+    }
+  }
   async function handlePublishJob(jobId: string) {
     if (!authState?.accessToken) {
       return;
@@ -787,7 +896,7 @@ export function App() {
     setMessageText("");
     window.localStorage.removeItem(AUTH_STORAGE_KEY);
     setSuccessMessage("Signed out.");
-    setActiveView("auth");
+    setActiveView("feed");
   }
 
   if (isBooting) {
@@ -802,7 +911,7 @@ export function App() {
     <div className="shell">
       <nav className="appTopNav">
         {[
-          { key: "overview", label: "Home" },
+          { key: "feed", label: "Feed" },
           { key: "jobs", label: "Jobs" },
           { key: "applications", label: "Apps" },
           { key: "messages", label: "Chat" },
@@ -823,13 +932,14 @@ export function App() {
       <section className="hero">
         <div className="headerRow">
           <div>
-            <div className="badge">LaborForce MVP</div>
-            <h1 style={{ marginTop: 12 }}>Verified hiring for blue-collar work.</h1>
+            <div className="badge">LaborForce Live Feed</div>
+            <h1 style={{ marginTop: 12 }}>Verified work, real people, real jobs.</h1>
             <p className="muted" style={{ marginTop: 12 }}>
-              This build is focused on the core product flow: auth, profiles, jobs, applications, and messaging.
+              The home screen is now a real feed backed by LaborForce posts, while jobs, applications, chat, and profiles stay wired to the live API.
             </p>
           </div>
           <div className="pillRow">
+            <span className="pill">{feedPosts.length} posts</span>
             <span className="pill">{jobs.length} jobs</span>
             <span className="pill">{applications.length} applications</span>
             <span className="pill">{conversations.length} conversations</span>
@@ -871,137 +981,174 @@ export function App() {
         {successMessage && <div className="notice successNotice">{successMessage}</div>}
       </section>
 
-      {activeView === "overview" && (
-        <section style={{ marginTop: 24 }} className="feedGrid">
+      {activeView === "feed" && (
+        <section style={{ marginTop: 24 }} className="feedPageLayout">
           <div className="stack roomyStack">
-            {!user && (
-              <div className="card">
-                <h2>Start here</h2>
-                <p className="muted" style={{ marginTop: 12 }}>
-                  Create an account, finish your profile, then move into jobs, applications, and messaging.
-                </p>
-                <div className="pillRow" style={{ marginTop: 12 }}>
-                  <button className="actionButton" type="button" onClick={() => setActiveView("auth")}>
+            <div className="composerCard stack">
+              <div className="headerRow">
+                <div>
+                  <h2>Feed</h2>
+                  <p className="muted" style={{ marginTop: 8 }}>
+                    Verified people can post work updates, wins, before-and-afters, and short videos to everyone.
+                  </p>
+                </div>
+                <span className="pill">{isLoadingFeed ? "Refreshing..." : `${feedPosts.length} live posts`}</span>
+              </div>
+
+              {user ? (
+                user.isVerified ? (
+                  <form className="stack" onSubmit={handleCreateFeedPost}>
+                    <label className="field">
+                      <span>Post</span>
+                      <textarea
+                        rows={4}
+                        placeholder="What did you build, finish, learn, or ship today?"
+                        value={feedForm.postText}
+                        onChange={(event) => setFeedForm((current) => ({ ...current, postText: event.target.value }))}
+                        required
+                      />
+                    </label>
+                    <div className="splitFields">
+                      <label className="field">
+                        <span>Photo URL</span>
+                        <input
+                          type="url"
+                          placeholder="https://..."
+                          value={feedForm.photoUrl}
+                          onChange={(event) => setFeedForm((current) => ({ ...current, photoUrl: event.target.value }))}
+                        />
+                      </label>
+                      <label className="field">
+                        <span>Video URL</span>
+                        <input
+                          type="url"
+                          placeholder="https://..."
+                          value={feedForm.videoUrl}
+                          onChange={(event) => setFeedForm((current) => ({ ...current, videoUrl: event.target.value }))}
+                        />
+                      </label>
+                    </div>
+                    <div className="splitFields">
+                      <label className="field">
+                        <span>Trade tag</span>
+                        <input
+                          value={feedForm.tradeTag}
+                          onChange={(event) => setFeedForm((current) => ({ ...current, tradeTag: event.target.value }))}
+                          placeholder="HVAC, Electrical, Roofing"
+                        />
+                      </label>
+                      <label className="field">
+                        <span>Location</span>
+                        <input
+                          value={feedForm.locationDisplay}
+                          onChange={(event) => setFeedForm((current) => ({ ...current, locationDisplay: event.target.value }))}
+                          placeholder="Wake County, NC"
+                        />
+                      </label>
+                    </div>
+                    <label className="profileToggle">
+                      <input
+                        type="checkbox"
+                        checked={feedForm.isProofWall}
+                        onChange={(event) => setFeedForm((current) => ({ ...current, isProofWall: event.target.checked }))}
+                      />
+                      Add this to my proof wall too
+                    </label>
+                    <button className="actionButton" disabled={isPostingFeed} type="submit">
+                      {isPostingFeed ? "Posting..." : "Post to feed"}
+                    </button>
+                  </form>
+                ) : (
+                  <div className="notice errorNotice">
+                    Finish verification before posting. You can still browse the live feed right now.
+                  </div>
+                )
+              ) : (
+                <div className="card">
+                  <strong>Sign in to post.</strong>
+                  <p className="muted" style={{ marginTop: 8 }}>
+                    Everyone can browse the live feed, but only verified LaborForce users can publish into it.
+                  </p>
+                  <button className="actionButton" style={{ marginTop: 12 }} type="button" onClick={() => setActiveView("auth")}>
                     Open login
                   </button>
                 </div>
+              )}
+            </div>
+
+            {feedPosts.length > 0 ? (
+              feedPosts.map((post) => (
+                <article key={post.id} className="socialPostCard">
+                  <div className="feedAuthorRow">
+                    <div className="feedAuthorIdentity">
+                      <div className="feedAuthorAvatar">
+                        {post.author.profilePhotoUrl ? (
+                          <img alt={post.author.fullName} src={post.author.profilePhotoUrl} className="feedAvatarImage" />
+                        ) : (
+                          <span>{buildInitials(post.author.fullName)}</span>
+                        )}
+                      </div>
+                      <div>
+                        <strong>{post.author.fullName}</strong>
+                        <div className="muted">
+                          {post.author.tradeType ?? post.author.businessName ?? post.author.userTag}
+                          {post.locationDisplay ? ` • ${post.locationDisplay}` : ""}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="feedPostMeta">
+                      <span className="pill">{post.tradeTag}</span>
+                      <span className="muted">{formatDateTime(post.createdAt)}</span>
+                    </div>
+                  </div>
+
+                  <p style={{ marginTop: 14 }}>{post.postText}</p>
+
+                  {post.photoUrls[0] && <img alt={post.tradeTag} className="socialImage" src={post.photoUrls[0]} />}
+                  {post.videoUrl && (
+                    <video className="socialVideo" controls preload="metadata" src={post.videoUrl}>
+                      <track kind="captions" />
+                    </video>
+                  )}
+
+                  <div className="pillRow" style={{ marginTop: 14 }}>
+                    {post.isProofWall && <span className="pill">Proof wall</span>}
+                    <span className="pill">{post.respectsCount} respect</span>
+                    <span className="pill">{post.impressedCount} impressed</span>
+                    <span className="pill">{post.helpfulCount} helpful</span>
+                    <span className="pill">{post.commentsCount} comments</span>
+                  </div>
+                </article>
+              ))
+            ) : (
+              <div className="card">
+                <strong>No feed posts yet.</strong>
+                <p className="muted" style={{ marginTop: 8 }}>
+                  The fake demo feed is gone now. The next post you or another verified user makes will show up here for real.
+                </p>
               </div>
-            )}
-
-            {user?.userTag === "employer" && (
-              <>
-                <div className="card">
-                  <div className="headerRow">
-                    <div>
-                      <h2>Employer dashboard</h2>
-                      <p className="muted" style={{ marginTop: 8 }}>
-                        Keep hiring moving by verifying your business, publishing jobs, and replying to applicants fast.
-                      </p>
-                    </div>
-                    <div className="pillRow">
-                      <span className="pill">{employerDrafts.length} drafts</span>
-                      <span className="pill">{incomingApplications.length} applicants</span>
-                      <span className="pill">{conversations.length} chats</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="card">
-                  <h3>Next action</h3>
-                  <p className="muted" style={{ marginTop: 12 }}>
-                    {needsBusinessVerification
-                      ? "Complete business verification so you can publish jobs."
-                      : employerNeedsFirstJob
-                        ? "Create your first job draft to start building your hiring pipeline."
-                        : employerPriorityApplication
-                          ? `Review ${employerPriorityApplication.applicant.fullName} for ${employerPriorityApplication.job.jobTitle} and move them forward.`
-                          : "Check your jobs and inbox to keep your hiring flow active."}
-                  </p>
-                  <div className="pillRow" style={{ marginTop: 12 }}>
-                    {needsBusinessVerification && (
-                      <button className="actionButton" type="button" onClick={() => setActiveView("profile")}>
-                        Finish verification
-                      </button>
-                    )}
-                    {!needsBusinessVerification && employerNeedsFirstJob && (
-                      <button className="actionButton" type="button" onClick={() => setActiveView("jobs")}>
-                        Create a job
-                      </button>
-                    )}
-                    {!needsBusinessVerification && employerPriorityApplication && (
-                      <>
-                        <button className="actionButton" type="button" onClick={() => setActiveView("applications")}>
-                          Review applicants
-                        </button>
-                        <button className="actionButton ghostButton" type="button" onClick={() => openConversation(employerPriorityApplication.applicant.id)}>
-                          Open chat
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </>
-            )}
-
-            {user?.userTag === "employee" && (
-              <>
-                <div className="card">
-                  <div className="headerRow">
-                    <div>
-                      <h2>Worker dashboard</h2>
-                      <p className="muted" style={{ marginTop: 8 }}>
-                        Keep your profile current, apply to good-fit jobs, and follow up fast when employers respond.
-                      </p>
-                    </div>
-                    <div className="pillRow">
-                      <span className="pill">{workerActiveApplications.length} active applications</span>
-                      <span className="pill">{conversations.length} chats</span>
-                      <span className="pill">{jobs.length} jobs nearby</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="card">
-                  <h3>Next action</h3>
-                  <p className="muted" style={{ marginTop: 12 }}>
-                    {workerNeedsFirstApplication
-                      ? "Browse jobs and send your first application."
-                      : workerPriorityApplication?.status === "shortlisted"
-                        ? `You were shortlisted for ${workerPriorityApplication.job?.jobTitle ?? "a job"}. Follow up in chat now.`
-                        : workerPriorityApplication?.status === "hired"
-                          ? `You were marked hired for ${workerPriorityApplication.job?.jobTitle ?? "a job"}. Confirm details in chat.`
-                          : "Stay on top of your applications and follow up in chat when employers engage."}
-                  </p>
-                  <div className="pillRow" style={{ marginTop: 12 }}>
-                    {workerNeedsFirstApplication && (
-                      <button className="actionButton" type="button" onClick={() => setActiveView("jobs")}>
-                        Browse jobs
-                      </button>
-                    )}
-                    {!workerNeedsFirstApplication && workerPriorityApplication?.employer && (
-                      <button
-                        className="actionButton"
-                        type="button"
-                        onClick={() =>
-                          openConversation(
-                            workerPriorityApplication.employer!.id,
-                            `Hi ${workerPriorityApplication.employer!.fullName.split(" ")[0]}, I wanted to follow up on ${workerPriorityApplication.job?.jobTitle ?? "my application"}.`
-                          )
-                        }
-                      >
-                        Message employer
-                      </button>
-                    )}
-                    <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("applications")}>
-                      Open applications
-                    </button>
-                  </div>
-                </div>
-              </>
             )}
           </div>
 
           <div className="stack sideRail">
+            <div className="card">
+              <h3>What belongs here</h3>
+              <div className="stack" style={{ marginTop: 12 }}>
+                <div className="betaItem">
+                  <strong>Work proof</strong>
+                  <p className="muted" style={{ marginTop: 8 }}>Finished projects, before-and-afters, certs, and jobsite updates.</p>
+                </div>
+                <div className="betaItem">
+                  <strong>Trade knowledge</strong>
+                  <p className="muted" style={{ marginTop: 8 }}>Quick lessons, equipment tips, code reminders, and how-to clips.</p>
+                </div>
+                <div className="betaItem">
+                  <strong>Availability</strong>
+                  <p className="muted" style={{ marginTop: 8 }}>Open-to-work updates, hiring wins, and local crew needs.</p>
+                </div>
+              </div>
+            </div>
+
             <div className="card">
               <h3>Snapshot</h3>
               <div className="stack" style={{ marginTop: 12 }}>
@@ -1022,6 +1169,18 @@ export function App() {
                   <strong>{conversations.length}</strong>
                 </div>
               </div>
+            </div>
+
+            <div className="card">
+              <h3>What is real now</h3>
+              <div className="pillRow" style={{ marginTop: 12 }}>
+                <span className="pill">Real posts</span>
+                <span className="pill">Real authors</span>
+                <span className="pill">Real DB storage</span>
+              </div>
+              <p className="muted" style={{ marginTop: 12 }}>
+                This page now reads from the LaborForce database. No demo posts are injected when the feed is empty.
+              </p>
             </div>
 
             <div className="card">

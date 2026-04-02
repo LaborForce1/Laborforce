@@ -3,7 +3,6 @@ import { z } from "zod";
 import { requireAuth, type AuthedRequest } from "../../middleware/auth.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { HttpError } from "../../utils/http.js";
-import { demoSocial } from "../../utils/demoData.js";
 import { usersRepository } from "../users/repository.js";
 import { socialRepository } from "./repository.js";
 
@@ -11,12 +10,12 @@ export const socialRouter = Router();
 
 socialRouter.get("/feed", asyncHandler(async (req, res) => {
   const limit = z.coerce.number().int().min(1).max(50).default(25).parse(req.query.limit ?? 25);
-  const posts = await socialRepository.list(limit);
+  const posts = await socialRepository.listFeed(limit);
 
   res.json({
     audience: "everyone",
     reactions: ["Respect", "Impressed", "Helpful"],
-    items: posts.length > 0 ? posts : demoSocial
+    items: posts
   });
 }));
 
@@ -50,6 +49,19 @@ socialRouter.post("/feed", requireAuth, asyncHandler(async (req: AuthedRequest, 
   });
 
   res.status(201).json({
-    post
+    post: {
+      ...post,
+      author: {
+        id: user.id,
+        fullName: user.fullName,
+        userTag: user.userTag,
+        tradeType: user.tradeType,
+        businessName: user.businessName,
+        profilePhotoUrl: user.profilePhotoUrl,
+        verificationStatus: user.verificationStatus,
+        isVerified: user.isVerified,
+        trustBadge: user.trustBadge
+      }
+    }
   });
 }));

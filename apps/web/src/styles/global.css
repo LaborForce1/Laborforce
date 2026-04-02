@@ -409,6 +409,52 @@ textarea:focus {
   margin: 16px 0;
 }
 
+.socialVideo {
+  width: 100%;
+  max-height: 420px;
+  border-radius: 16px;
+  margin: 16px 0;
+  background: #0d1726;
+}
+
+.feedAuthorRow {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.feedAuthorIdentity {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.feedAuthorAvatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: linear-gradient(135deg, #b8642c, #5f4b3c);
+  color: #ffffff;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.feedAvatarImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.feedPostMeta {
+  display: grid;
+  gap: 8px;
+  justify-items: end;
+}
+
 .reelsGrid {
   display: grid;
   gap: 16px;
