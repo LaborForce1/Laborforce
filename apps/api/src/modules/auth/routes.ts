@@ -12,7 +12,8 @@ const signupSchema = z.object({
   phone: z.string().min(7),
   zipCode: z.string().min(3),
   userTag: z.enum(["employee", "employer", "customer"]),
-  tradeType: z.string().optional()
+  tradeType: z.string().optional(),
+  businessName: z.string().min(2).max(120).optional()
 });
 
 export const authRouter = Router();
@@ -33,7 +34,8 @@ authRouter.post("/signup", asyncHandler(async (req, res) => {
     phone: payload.phone,
     zipCode: payload.zipCode,
     userTag: payload.userTag,
-    tradeType: payload.tradeType
+    tradeType: payload.tradeType,
+    businessName: payload.businessName
   });
   const accessToken = authService.createAccessToken(created.user.id);
   const refreshToken = authService.createRefreshToken(created.user.id);

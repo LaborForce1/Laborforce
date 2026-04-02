@@ -126,6 +126,15 @@ export interface JobApplication {
   message?: string | null;
   appliedAt: string;
   employerViewed: boolean;
+  job?: {
+    id: string;
+    jobTitle: string;
+    tradeCategory: string;
+    countyLocation: string;
+    status: ListingStatus;
+    hourlyRateMin: number;
+    hourlyRateMax: number;
+  };
 }
 
 export interface EmployerApplicationView {

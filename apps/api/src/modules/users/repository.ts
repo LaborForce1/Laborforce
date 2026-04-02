@@ -36,6 +36,7 @@ export interface CreateUserInput {
   zipCode: string;
   userTag: UserTag;
   tradeType?: string;
+  businessName?: string;
 }
 
 export interface UpdateProfileInput {
@@ -122,9 +123,10 @@ export const usersRepository = {
           phone,
           zip_code,
           user_tag,
-          trade_type
+          trade_type,
+          business_name
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING
           id,
           email,
@@ -158,7 +160,8 @@ export const usersRepository = {
         input.phone,
         input.zipCode,
         input.userTag,
-        input.tradeType ?? null
+        input.tradeType ?? null,
+        input.businessName ?? null
       ]
     );
 
