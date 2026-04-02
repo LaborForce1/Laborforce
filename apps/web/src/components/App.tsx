@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import type { EmployerApplicationView, JobApplication, JobListing, Message, MessageConversation, SocialFeedItem, User, UserTag } from "@laborforce/shared";
+import type { EmployerApplicationView, JobApplication, JobListing, Message, MessageConversation, User, UserTag } from "@laborforce/shared";
 import { apiGet, apiPatch, apiPost } from "../api/client";
 
 const AUTH_STORAGE_KEY = "laborforce-web-auth";
 
-type View = "feed" | "auth" | "jobs" | "applications" | "messages" | "profile";
+type View = "overview" | "auth" | "jobs" | "applications" | "messages" | "profile";
 type AuthMode = "login" | "signup";
 
 interface AuthCredentials {
@@ -20,12 +20,6 @@ interface AuthResponse {
 interface JobsResponse {
   radiusMiles: number;
   items: JobListing[];
-}
-
-interface FeedResponse {
-  audience: string;
-  reactions: string[];
-  items: SocialFeedItem[];
 }
 
 interface EmployerJobsResponse {
@@ -53,16 +47,6 @@ interface ThreadResponse {
 interface ProfileUpdateResponse {
   user: User;
   message: string;
-}
-
-interface CreateFeedPostResponse {
-  post: SocialFeedItem;
-}
-
-interface VerificationStatusResponse {
-  personaReady: boolean;
-  flow: string;
-  statuses: string[];
 }
 
 interface BusinessVerificationResponse {
@@ -105,15 +89,6 @@ interface ProfileFormState {
   openToWork: boolean;
 }
 
-interface FeedFormState {
-  postText: string;
-  photoUrl: string;
-  videoUrl: string;
-  tradeTag: string;
-  locationDisplay: string;
-  isProofWall: boolean;
-}
-
 const emptyAuthForm: AuthFormState = {
   fullName: "",
   businessName: "",
@@ -147,15 +122,6 @@ const emptyProfileForm: ProfileFormState = {
   openToWork: false
 };
 
-const emptyFeedForm: FeedFormState = {
-  postText: "",
-  photoUrl: "",
-  videoUrl: "",
-  tradeTag: "",
-  locationDisplay: "",
-  isProofWall: false
-};
-
 function formatMoney(value: number) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -170,24 +136,6 @@ function formatStatus(status: string) {
 
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString();
-}
-
-function formatDateTime(value: string) {
-  return new Date(value).toLocaleString([], {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit"
-  });
-}
-
-function buildInitials(name: string) {
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("");
 }
 
 function buildProfileChecklist(user: User | null) {
@@ -228,12 +176,11 @@ function buildProfileChecklist(user: User | null) {
 }
 
 export function App() {
-  const [activeView, setActiveView] = useState<View>("feed");
+  const [activeView, setActiveView] = useState<View>("overview");
   const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [selectedTag, setSelectedTag] = useState<UserTag>("employee");
   const [authState, setAuthState] = useState<AuthCredentials | null>(null);
   const [user, setUser] = useState<User | null>(null);
-  const [feedPosts, setFeedPosts] = useState<SocialFeedItem[]>([]);
   const [jobs, setJobs] = useState<JobListing[]>([]);
   const [employerJobs, setEmployerJobs] = useState<JobListing[]>([]);
   const [jobsRadius, setJobsRadius] = useState(50);
@@ -251,18 +198,13 @@ export function App() {
   const [jobForm, setJobForm] = useState<JobFormState>(emptyJobForm);
   const [editingJobId, setEditingJobId] = useState<string | null>(null);
   const [profileForm, setProfileForm] = useState<ProfileFormState>(emptyProfileForm);
-  const [feedForm, setFeedForm] = useState<FeedFormState>(emptyFeedForm);
   const [applyForms, setApplyForms] = useState<Record<string, string>>({});
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [verificationFlow, setVerificationFlow] = useState<string>("");
-  const [personaReady, setPersonaReady] = useState(false);
   const [isBooting, setIsBooting] = useState(true);
   const [isLoadingJobs, setIsLoadingJobs] = useState(false);
-  const [isLoadingFeed, setIsLoadingFeed] = useState(false);
   const [isLoadingThread, setIsLoadingThread] = useState(false);
   const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
-  const [isPostingFeed, setIsPostingFeed] = useState(false);
   const [isPostingJob, setIsPostingJob] = useState(false);
   const [isApplyingJobId, setIsApplyingJobId] = useState<string | null>(null);
   const [publishingJobId, setPublishingJobId] = useState<string | null>(null);
@@ -306,6 +248,9 @@ export function App() {
     null;
   const employerNeedsFirstJob = user?.userTag === "employer" && employerJobs.length === 0;
   const workerNeedsFirstApplication = user?.userTag === "employee" && applications.length === 0;
+  const messagingLocked = Boolean(user && !user.isVerified);
+  const employerPriorityApplicantVerified = employerPriorityApplication?.applicant.verificationStatus === "verified";
+  const workerPriorityEmployerVerified = workerPriorityApplication?.employer?.verificationStatus === "verified";
   const availableTradeFilters = useMemo(
     () => Array.from(new Set(jobs.map((job) => job.tradeCategory))).sort((a, b) => a.localeCompare(b)),
     [jobs]
@@ -346,9 +291,7 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    void loadFeed();
     void loadJobs();
-    void loadVerificationStatus();
   }, [driveRadius, authState?.accessToken]);
 
   useEffect(() => {
@@ -401,12 +344,6 @@ export function App() {
       unionStatus: user.unionStatus ?? "",
       openToWork: user.openToWork
     });
-
-    setFeedForm((current) => ({
-      ...current,
-      tradeTag: current.tradeTag || user.tradeType || user.businessName || user.userTag,
-      locationDisplay: current.locationDisplay || user.zipCode || ""
-    }));
   }, [user]);
 
   useEffect(() => {
@@ -417,19 +354,6 @@ export function App() {
 
     void loadThread(authState.accessToken, selectedRecipientId);
   }, [authState, selectedRecipientId]);
-
-  async function loadFeed() {
-    setIsLoadingFeed(true);
-
-    try {
-      const response = await apiGet<FeedResponse>("/social/feed", authState?.accessToken);
-      setFeedPosts(response.items);
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Unable to load the feed.");
-    } finally {
-      setIsLoadingFeed(false);
-    }
-  }
 
   async function loadJobs() {
     setIsLoadingJobs(true);
@@ -442,17 +366,6 @@ export function App() {
       setErrorMessage(error instanceof Error ? error.message : "Unable to load jobs.");
     } finally {
       setIsLoadingJobs(false);
-    }
-  }
-
-  async function loadVerificationStatus() {
-    try {
-      const response = await apiGet<VerificationStatusResponse>("/verification/status");
-      setPersonaReady(response.personaReady);
-      setVerificationFlow(response.flow);
-    } catch {
-      setPersonaReady(false);
-      setVerificationFlow("");
     }
   }
 
@@ -652,45 +565,6 @@ export function App() {
     setJobForm(emptyJobForm);
   }
 
-  async function handleCreateFeedPost(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!authState?.accessToken) {
-      setErrorMessage("Sign in before posting to the feed.");
-      return;
-    }
-
-    setIsPostingFeed(true);
-    setErrorMessage(null);
-    setSuccessMessage(null);
-
-    try {
-      const response = await apiPost<CreateFeedPostResponse>(
-        "/social/feed",
-        {
-          postText: feedForm.postText.trim(),
-          photoUrls: feedForm.photoUrl.trim() ? [feedForm.photoUrl.trim()] : undefined,
-          videoUrl: feedForm.videoUrl.trim() || undefined,
-          tradeTag: feedForm.tradeTag.trim() || undefined,
-          locationDisplay: feedForm.locationDisplay.trim() || undefined,
-          isProofWall: feedForm.isProofWall
-        },
-        authState.accessToken
-      );
-
-      setFeedPosts((current) => [response.post, ...current]);
-      setFeedForm((current) => ({
-        ...emptyFeedForm,
-        tradeTag: current.tradeTag,
-        locationDisplay: current.locationDisplay
-      }));
-      setSuccessMessage("Post published to the feed.");
-      setActiveView("feed");
-    } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Unable to post to the feed.");
-    } finally {
-      setIsPostingFeed(false);
-    }
-  }
   async function handlePublishJob(jobId: string) {
     if (!authState?.accessToken) {
       return;
@@ -701,8 +575,8 @@ export function App() {
     setSuccessMessage(null);
 
     try {
-      const response = await apiPost<{ job: JobListing; message: string }>(`/jobs/${jobId}/publish`, {}, authState.accessToken);
-      setSuccessMessage(response.message);
+      await apiPost<{ job: JobListing; message: string }>(`/jobs/${jobId}/publish`, {}, authState.accessToken);
+      setSuccessMessage("Job is live. Applicants can see it now.");
       await loadJobs();
       await loadEmployerJobs(authState.accessToken);
     } catch (error) {
@@ -747,6 +621,7 @@ export function App() {
     options?: {
       recipientId?: string;
       draftMessage?: string;
+      postActionNote?: string;
     }
   ) {
     if (!authState?.accessToken) {
@@ -763,7 +638,9 @@ export function App() {
         { status },
         authState.accessToken
       );
-      setSuccessMessage(response.message);
+      setSuccessMessage(
+        options?.postActionNote ? `${response.message} ${options.postActionNote}` : response.message
+      );
       await loadEmployerApplications(authState.accessToken);
       if (options?.recipientId && options.draftMessage && (status === "shortlisted" || status === "hired")) {
         await loadConversations(authState.accessToken);
@@ -871,9 +748,10 @@ export function App() {
       );
 
       setUser(response.user);
-      setSuccessMessage(response.message);
+      setSuccessMessage("Business verification complete. You can publish jobs now.");
       await loadJobs();
       await loadEmployerJobs(authState.accessToken);
+      setActiveView("jobs");
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Unable to complete business verification.");
     } finally {
@@ -896,7 +774,7 @@ export function App() {
     setMessageText("");
     window.localStorage.removeItem(AUTH_STORAGE_KEY);
     setSuccessMessage("Signed out.");
-    setActiveView("feed");
+    setActiveView("overview");
   }
 
   if (isBooting) {
@@ -911,7 +789,7 @@ export function App() {
     <div className="shell">
       <nav className="appTopNav">
         {[
-          { key: "feed", label: "Feed" },
+          { key: "overview", label: "Home" },
           { key: "jobs", label: "Jobs" },
           { key: "applications", label: "Apps" },
           { key: "messages", label: "Chat" },
@@ -932,14 +810,13 @@ export function App() {
       <section className="hero">
         <div className="headerRow">
           <div>
-            <div className="badge">LaborForce Live Feed</div>
-            <h1 style={{ marginTop: 12 }}>Verified work, real people, real jobs.</h1>
+            <div className="badge">LaborForce MVP</div>
+            <h1 style={{ marginTop: 12 }}>Verified hiring for blue-collar work.</h1>
             <p className="muted" style={{ marginTop: 12 }}>
-              The home screen is now a real feed backed by LaborForce posts, while jobs, applications, chat, and profiles stay wired to the live API.
+              The priority is the real hiring flow: auth, profile, jobs, applications, and messaging.
             </p>
           </div>
           <div className="pillRow">
-            <span className="pill">{feedPosts.length} posts</span>
             <span className="pill">{jobs.length} jobs</span>
             <span className="pill">{applications.length} applications</span>
             <span className="pill">{conversations.length} conversations</span>
@@ -981,174 +858,153 @@ export function App() {
         {successMessage && <div className="notice successNotice">{successMessage}</div>}
       </section>
 
-      {activeView === "feed" && (
+      {activeView === "overview" && (
         <section style={{ marginTop: 24 }} className="feedPageLayout">
           <div className="stack roomyStack">
-            <div className="composerCard stack">
-              <div className="headerRow">
-                <div>
-                  <h2>Feed</h2>
-                  <p className="muted" style={{ marginTop: 8 }}>
-                    Verified people can post work updates, wins, before-and-afters, and short videos to everyone.
-                  </p>
-                </div>
-                <span className="pill">{isLoadingFeed ? "Refreshing..." : `${feedPosts.length} live posts`}</span>
-              </div>
-
-              {user ? (
-                user.isVerified ? (
-                  <form className="stack" onSubmit={handleCreateFeedPost}>
-                    <label className="field">
-                      <span>Post</span>
-                      <textarea
-                        rows={4}
-                        placeholder="What did you build, finish, learn, or ship today?"
-                        value={feedForm.postText}
-                        onChange={(event) => setFeedForm((current) => ({ ...current, postText: event.target.value }))}
-                        required
-                      />
-                    </label>
-                    <div className="splitFields">
-                      <label className="field">
-                        <span>Photo URL</span>
-                        <input
-                          type="url"
-                          placeholder="https://..."
-                          value={feedForm.photoUrl}
-                          onChange={(event) => setFeedForm((current) => ({ ...current, photoUrl: event.target.value }))}
-                        />
-                      </label>
-                      <label className="field">
-                        <span>Video URL</span>
-                        <input
-                          type="url"
-                          placeholder="https://..."
-                          value={feedForm.videoUrl}
-                          onChange={(event) => setFeedForm((current) => ({ ...current, videoUrl: event.target.value }))}
-                        />
-                      </label>
-                    </div>
-                    <div className="splitFields">
-                      <label className="field">
-                        <span>Trade tag</span>
-                        <input
-                          value={feedForm.tradeTag}
-                          onChange={(event) => setFeedForm((current) => ({ ...current, tradeTag: event.target.value }))}
-                          placeholder="HVAC, Electrical, Roofing"
-                        />
-                      </label>
-                      <label className="field">
-                        <span>Location</span>
-                        <input
-                          value={feedForm.locationDisplay}
-                          onChange={(event) => setFeedForm((current) => ({ ...current, locationDisplay: event.target.value }))}
-                          placeholder="Wake County, NC"
-                        />
-                      </label>
-                    </div>
-                    <label className="profileToggle">
-                      <input
-                        type="checkbox"
-                        checked={feedForm.isProofWall}
-                        onChange={(event) => setFeedForm((current) => ({ ...current, isProofWall: event.target.checked }))}
-                      />
-                      Add this to my proof wall too
-                    </label>
-                    <button className="actionButton" disabled={isPostingFeed} type="submit">
-                      {isPostingFeed ? "Posting..." : "Post to feed"}
-                    </button>
-                  </form>
-                ) : (
-                  <div className="notice errorNotice">
-                    Finish verification before posting. You can still browse the live feed right now.
-                  </div>
-                )
-              ) : (
-                <div className="card">
-                  <strong>Sign in to post.</strong>
-                  <p className="muted" style={{ marginTop: 8 }}>
-                    Everyone can browse the live feed, but only verified LaborForce users can publish into it.
-                  </p>
-                  <button className="actionButton" style={{ marginTop: 12 }} type="button" onClick={() => setActiveView("auth")}>
+            {!user && (
+              <div className="card">
+                <h2>Start here</h2>
+                <p className="muted" style={{ marginTop: 12 }}>
+                  Create an account, finish your profile, then move into jobs, applications, and messaging.
+                </p>
+                <div className="pillRow" style={{ marginTop: 12 }}>
+                  <button className="actionButton" type="button" onClick={() => setActiveView("auth")}>
                     Open login
                   </button>
                 </div>
-              )}
-            </div>
-
-            {feedPosts.length > 0 ? (
-              feedPosts.map((post) => (
-                <article key={post.id} className="socialPostCard">
-                  <div className="feedAuthorRow">
-                    <div className="feedAuthorIdentity">
-                      <div className="feedAuthorAvatar">
-                        {post.author.profilePhotoUrl ? (
-                          <img alt={post.author.fullName} src={post.author.profilePhotoUrl} className="feedAvatarImage" />
-                        ) : (
-                          <span>{buildInitials(post.author.fullName)}</span>
-                        )}
-                      </div>
-                      <div>
-                        <strong>{post.author.fullName}</strong>
-                        <div className="muted">
-                          {post.author.tradeType ?? post.author.businessName ?? post.author.userTag}
-                          {post.locationDisplay ? ` • ${post.locationDisplay}` : ""}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="feedPostMeta">
-                      <span className="pill">{post.tradeTag}</span>
-                      <span className="muted">{formatDateTime(post.createdAt)}</span>
-                    </div>
-                  </div>
-
-                  <p style={{ marginTop: 14 }}>{post.postText}</p>
-
-                  {post.photoUrls[0] && <img alt={post.tradeTag} className="socialImage" src={post.photoUrls[0]} />}
-                  {post.videoUrl && (
-                    <video className="socialVideo" controls preload="metadata" src={post.videoUrl}>
-                      <track kind="captions" />
-                    </video>
-                  )}
-
-                  <div className="pillRow" style={{ marginTop: 14 }}>
-                    {post.isProofWall && <span className="pill">Proof wall</span>}
-                    <span className="pill">{post.respectsCount} respect</span>
-                    <span className="pill">{post.impressedCount} impressed</span>
-                    <span className="pill">{post.helpfulCount} helpful</span>
-                    <span className="pill">{post.commentsCount} comments</span>
-                  </div>
-                </article>
-              ))
-            ) : (
-              <div className="card">
-                <strong>No feed posts yet.</strong>
-                <p className="muted" style={{ marginTop: 8 }}>
-                  The fake demo feed is gone now. The next post you or another verified user makes will show up here for real.
-                </p>
               </div>
+            )}
+
+            {user?.userTag === "employer" && (
+              <>
+                <div className="card">
+                  <div className="headerRow">
+                    <div>
+                      <h2>Employer dashboard</h2>
+                      <p className="muted" style={{ marginTop: 8 }}>
+                        Keep hiring moving by verifying your business, publishing jobs, and replying to applicants fast.
+                      </p>
+                    </div>
+                    <div className="pillRow">
+                      <span className="pill">{employerDrafts.length} drafts</span>
+                      <span className="pill">{incomingApplications.length} applicants</span>
+                      <span className="pill">{conversations.length} chats</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="card">
+                  <h3>Next action</h3>
+                  <p className="muted" style={{ marginTop: 12 }}>
+                    {needsBusinessVerification
+                      ? "Complete business verification so you can publish jobs."
+                      : employerNeedsFirstJob
+                        ? "Create your first job draft to start building your hiring pipeline."
+                        : employerPriorityApplication
+                          ? `Review ${employerPriorityApplication.applicant.fullName} for ${employerPriorityApplication.job.jobTitle} and move them forward.`
+                          : "Check your jobs and inbox to keep your hiring flow active."}
+                  </p>
+                  <div className="pillRow" style={{ marginTop: 12 }}>
+                    {needsBusinessVerification && (
+                      <button className="actionButton" type="button" onClick={() => setActiveView("profile")}>
+                        Finish verification
+                      </button>
+                    )}
+                    {!needsBusinessVerification && employerNeedsFirstJob && (
+                      <button className="actionButton" type="button" onClick={() => setActiveView("jobs")}>
+                        Create a job
+                      </button>
+                    )}
+                    {!needsBusinessVerification && employerPriorityApplication && (
+                      <>
+                        <button className="actionButton" type="button" onClick={() => setActiveView("applications")}>
+                          Review applicants
+                        </button>
+                        {employerPriorityApplicantVerified && (
+                          <button className="actionButton ghostButton" type="button" onClick={() => openConversation(employerPriorityApplication.applicant.id)}>
+                            Open chat
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                  {!needsBusinessVerification && employerPriorityApplication && !employerPriorityApplicantVerified && (
+                    <p className="muted" style={{ marginTop: 12 }}>
+                      Review the applicant first. Messaging unlocks after the worker is verified.
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
+
+            {user?.userTag === "employee" && (
+              <>
+                <div className="card">
+                  <div className="headerRow">
+                    <div>
+                      <h2>Worker dashboard</h2>
+                      <p className="muted" style={{ marginTop: 8 }}>
+                        Keep your profile current, apply to good-fit jobs, and follow up fast when employers respond.
+                      </p>
+                    </div>
+                    <div className="pillRow">
+                      <span className="pill">{workerActiveApplications.length} active applications</span>
+                      <span className="pill">{conversations.length} chats</span>
+                      <span className="pill">{jobs.length} jobs nearby</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="card">
+                  <h3>Next action</h3>
+                  <p className="muted" style={{ marginTop: 12 }}>
+                    {workerNeedsFirstApplication
+                      ? "Browse jobs and send your first application."
+                      : workerPriorityApplication?.status === "shortlisted"
+                        ? workerPriorityEmployerVerified && user?.isVerified
+                          ? `You were shortlisted for ${workerPriorityApplication.job?.jobTitle ?? "a job"}. Follow up in chat now.`
+                          : `You were shortlisted for ${workerPriorityApplication.job?.jobTitle ?? "a job"}. Stay ready while verification catches up.`
+                        : workerPriorityApplication?.status === "hired"
+                          ? workerPriorityEmployerVerified && user?.isVerified
+                            ? `You were marked hired for ${workerPriorityApplication.job?.jobTitle ?? "a job"}. Confirm details in chat.`
+                            : `You were marked hired for ${workerPriorityApplication.job?.jobTitle ?? "a job"}. Watch Apps for updates while messaging stays locked.`
+                          : "Stay on top of your applications and follow up in chat when employers engage."}
+                  </p>
+                  <div className="pillRow" style={{ marginTop: 12 }}>
+                    {workerNeedsFirstApplication && (
+                      <button className="actionButton" type="button" onClick={() => setActiveView("jobs")}>
+                        Browse jobs
+                      </button>
+                    )}
+                    {!workerNeedsFirstApplication && workerPriorityApplication?.employer && user?.isVerified && workerPriorityEmployerVerified && (
+                      <button
+                        className="actionButton"
+                        type="button"
+                        onClick={() =>
+                          openConversation(
+                            workerPriorityApplication.employer!.id,
+                            `Hi ${workerPriorityApplication.employer!.fullName.split(" ")[0]}, I wanted to follow up on ${workerPriorityApplication.job?.jobTitle ?? "my application"}.`
+                          )
+                        }
+                      >
+                        Message employer
+                      </button>
+                    )}
+                    <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("applications")}>
+                      Open applications
+                    </button>
+                  </div>
+                  {!workerNeedsFirstApplication && workerPriorityApplication?.employer && (!user?.isVerified || !workerPriorityEmployerVerified) && (
+                    <p className="muted" style={{ marginTop: 12 }}>
+                      Messaging unlocks after both sides are verified. Keep the application moving in Apps for now.
+                    </p>
+                  )}
+                </div>
+              </>
             )}
           </div>
 
           <div className="stack sideRail">
-            <div className="card">
-              <h3>What belongs here</h3>
-              <div className="stack" style={{ marginTop: 12 }}>
-                <div className="betaItem">
-                  <strong>Work proof</strong>
-                  <p className="muted" style={{ marginTop: 8 }}>Finished projects, before-and-afters, certs, and jobsite updates.</p>
-                </div>
-                <div className="betaItem">
-                  <strong>Trade knowledge</strong>
-                  <p className="muted" style={{ marginTop: 8 }}>Quick lessons, equipment tips, code reminders, and how-to clips.</p>
-                </div>
-                <div className="betaItem">
-                  <strong>Availability</strong>
-                  <p className="muted" style={{ marginTop: 8 }}>Open-to-work updates, hiring wins, and local crew needs.</p>
-                </div>
-              </div>
-            </div>
-
             <div className="card">
               <h3>Snapshot</h3>
               <div className="stack" style={{ marginTop: 12 }}>
@@ -1172,14 +1028,16 @@ export function App() {
             </div>
 
             <div className="card">
-              <h3>What is real now</h3>
+              <h3>MVP focus</h3>
               <div className="pillRow" style={{ marginTop: 12 }}>
-                <span className="pill">Real posts</span>
-                <span className="pill">Real authors</span>
-                <span className="pill">Real DB storage</span>
+                <span className="pill">Auth</span>
+                <span className="pill">Profiles</span>
+                <span className="pill">Jobs</span>
+                <span className="pill">Apps</span>
+                <span className="pill">Chat</span>
               </div>
               <p className="muted" style={{ marginTop: 12 }}>
-                This page now reads from the LaborForce database. No demo posts are injected when the feed is empty.
+                Keep the product centered on hiring flow cleanup before production verification, Stripe, or extra features.
               </p>
             </div>
 
@@ -1483,16 +1341,13 @@ export function App() {
                 <span className="pill">{employerActiveJobs.length} active</span>
               </div>
               <p className="muted" style={{ marginTop: 12 }}>
-                Employers must be business verified before publishing jobs successfully.
+                Employers must complete business verification before public job publishing unlocks.
               </p>
               {user?.userTag === "employer" && !user.isBusinessVerified && (
                 <>
                   <p className="muted" style={{ marginTop: 12 }}>
-                    {personaReady
-                      ? "Persona is connected. Complete verification to unlock job publishing."
-                      : "Persona is not connected, so verification runs in development mode for now."}
+                    Finish verification, then publish your draft and start reviewing applicants from one place.
                   </p>
-                  {verificationFlow && <p className="muted" style={{ marginTop: 12 }}>{verificationFlow}</p>}
                   <button
                     className="actionButton"
                     style={{ marginTop: 12 }}
@@ -1609,7 +1464,7 @@ export function App() {
                           <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("jobs")}>
                             Browse jobs
                           </button>
-                          {application.employer && (
+                          {application.employer && user?.isVerified && application.employer.verificationStatus === "verified" && (
                             <button
                               className="actionButton ghostButton"
                               type="button"
@@ -1624,6 +1479,11 @@ export function App() {
                             </button>
                           )}
                         </div>
+                      )}
+                      {user?.userTag === "employee" && application.employer && (!user.isVerified || application.employer.verificationStatus !== "verified") && (
+                        <p className="muted" style={{ marginTop: 12 }}>
+                          Messaging unlocks after both sides are verified. Use your application message to introduce yourself for now.
+                        </p>
                       )}
                     </div>
                   ))}
@@ -1667,11 +1527,17 @@ export function App() {
                         <span className="pill">{application.employerViewed ? "Viewed" : "New applicant"}</span>
                       </div>
                       {application.message && <p style={{ marginTop: 10 }}>{application.message}</p>}
-                      <div className="pillRow" style={{ marginTop: 12 }}>
-                        <button className="actionButton ghostButton" type="button" onClick={() => openConversation(application.applicant.id)}>
-                          Message applicant
-                        </button>
-                      </div>
+                      {application.applicant.verificationStatus === "verified" ? (
+                        <div className="pillRow" style={{ marginTop: 12 }}>
+                          <button className="actionButton ghostButton" type="button" onClick={() => openConversation(application.applicant.id)}>
+                            Message applicant
+                          </button>
+                        </div>
+                      ) : (
+                        <p className="muted" style={{ marginTop: 12 }}>
+                          Messaging unlocks after the worker is verified. You can still review and move the application forward now.
+                        </p>
+                      )}
                       <div className="pillRow" style={{ marginTop: 12 }}>
                         {(["viewed", "shortlisted", "rejected", "hired"] as const).map((status) => (
                           <button
@@ -1681,13 +1547,23 @@ export function App() {
                             disabled={updatingApplicationId === application.id}
                             onClick={() =>
                               void handleApplicationStatus(application.id, status, {
-                                recipientId: application.applicant.id,
+                                recipientId:
+                                  application.applicant.verificationStatus === "verified"
+                                    ? application.applicant.id
+                                    : undefined,
                                 draftMessage:
-                                  status === "shortlisted"
-                                    ? `Hi ${application.applicant.fullName.split(" ")[0]}, I just shortlisted you for ${application.job.jobTitle}. Are you available to chat about next steps?`
-                                    : status === "hired"
-                                      ? `Hi ${application.applicant.fullName.split(" ")[0]}, we’d like to move forward with you for ${application.job.jobTitle}. Let’s confirm details and next steps.`
-                                      : undefined
+                                  application.applicant.verificationStatus === "verified"
+                                    ? status === "shortlisted"
+                                      ? `Hi ${application.applicant.fullName.split(" ")[0]}, I just shortlisted you for ${application.job.jobTitle}. Are you available to chat about next steps?`
+                                      : status === "hired"
+                                        ? `Hi ${application.applicant.fullName.split(" ")[0]}, we’d like to move forward with you for ${application.job.jobTitle}. Let’s confirm details and next steps.`
+                                        : undefined
+                                    : undefined,
+                                postActionNote:
+                                  application.applicant.verificationStatus !== "verified" &&
+                                  (status === "shortlisted" || status === "hired")
+                                    ? "Messaging will unlock after the worker is verified."
+                                    : undefined
                               })
                             }
                           >
@@ -1720,99 +1596,137 @@ export function App() {
 
       {activeView === "messages" && (
         <section style={{ marginTop: 24 }} className="messagesShell">
-          <div className="stack messageInboxPanel">
+          {!user ? (
             <div className="card">
-              <h2>Inbox</h2>
-              <p className="muted">Verified users can message each other after connecting through the platform.</p>
-            </div>
-            {conversations.length > 0 ? (
-              conversations.map((conversation) => (
-                <button
-                  key={conversation.conversationId}
-                  className="conversationButton"
-                  type="button"
-                  onClick={() => setSelectedRecipientId(conversation.participant.id)}
-                >
-                  <div className="headerRow">
-                    <strong>{conversation.participant.fullName}</strong>
-                    <span className="pill">{conversation.unreadCount} unread</span>
-                  </div>
-                  <div className="muted">{conversation.participant.tradeType ?? conversation.participant.businessName ?? conversation.participant.userTag}</div>
-                  <div>{conversation.latestMessage.messageText}</div>
-                </button>
-              ))
-            ) : (
-              <div className="card">
-                <p className="muted">No conversations yet. Conversations start after applications and hiring decisions, or when you choose a verified contact on the right.</p>
-              </div>
-            )}
-          </div>
-
-          <div className="stack messageComposerPanel">
-            <div className="card">
-              <h3>Start or open a conversation</h3>
-              <p className="muted" style={{ marginBottom: 12 }}>
-                Pick a verified person to open the message thread. Existing conversations will load automatically.
+              <h2>Messages</h2>
+              <p className="muted" style={{ marginTop: 12 }}>
+                Sign in first, then use applications and hiring decisions to move into chat.
               </p>
-              <select value={selectedRecipientId} onChange={(event) => setSelectedRecipientId(event.target.value)}>
-                <option value="">Choose a verified person</option>
-                {availableMessageUsers.map((candidate) => (
-                  <option key={candidate.id} value={candidate.id}>
-                    {candidate.fullName} - {candidate.tradeType ?? candidate.businessName ?? candidate.userTag}
-                  </option>
-                ))}
-              </select>
+              <button className="actionButton" style={{ marginTop: 12 }} type="button" onClick={() => setActiveView("auth")}>
+                Open login
+              </button>
             </div>
-
-            {selectedRecipientId && (
-              <>
-                <div className="card">
-                  <div className="headerRow">
-                    <div>
-                      <h3>{selectedMessageUser?.fullName ?? "Conversation"}</h3>
-                      <div className="muted">
-                        {selectedMessageUser?.tradeType ?? selectedMessageUser?.businessName ?? selectedMessageUser?.userTag ?? "Verified contact"}
-                      </div>
-                    </div>
-                    <div className="pillRow">
-                      <span className="pill">{selectedMessageUser?.verificationStatus ?? "verified"}</span>
-                      <span className="pill">{selectedConversation ? "Existing thread" : "New thread"}</span>
-                    </div>
-                  </div>
-                  <p className="muted" style={{ marginTop: 12 }}>
-                    {selectedConversation
-                      ? "This conversation is already active. Keep replies short, specific, and job-focused."
-                      : "This will start a new conversation once you send the first message."}
-                  </p>
-                </div>
-                <div className="messageThread card">
-                  {isLoadingThread ? (
-                    <div className="muted">Loading conversation...</div>
-                  ) : threadMessages.length > 0 ? (
-                    threadMessages.map((message) => (
-                      <article key={message.id} className={`messageBubble ${message.senderId === user?.id ? "sentBubble" : "receivedBubble"}`}>
-                        <strong>{message.senderId === user?.id ? "You" : "Them"}</strong>
-                        <div>{message.messageText}</div>
-                        <div className="muted">{new Date(message.sentAt).toLocaleString()}</div>
-                      </article>
-                    ))
-                  ) : (
-                    <div className="muted">No messages yet. Start the conversation.</div>
-                  )}
-                </div>
-                <div className="card stack">
-                  <h3>{selectedConversation ? "Reply" : "New message"}</h3>
-                  <p className="muted">
-                    Keep messages specific to the job, timeline, and next action so the handoff from applications stays clear.
-                  </p>
-                  <textarea rows={3} value={messageText} placeholder="Type your message" onChange={(event) => setMessageText(event.target.value)} />
-                  <button className="actionButton" type="button" disabled={isSendingMessage} onClick={() => void handleSendMessage()}>
-                    {isSendingMessage ? "Sending..." : selectedConversation ? "Send reply" : "Send message"}
+          ) : messagingLocked ? (
+            <div className="card">
+              <h2>Messages locked</h2>
+              <p className="muted" style={{ marginTop: 12 }}>
+                {user.userTag === "employer"
+                  ? "Messaging unlocks after your account is verified. Finish business verification first, then keep hiring moving through jobs and applications."
+                  : "Messaging unlocks after your account is verified. For now, keep the hiring flow moving through jobs and applications."}
+              </p>
+              <div className="pillRow" style={{ marginTop: 12 }}>
+                {user.userTag === "employer" && (
+                  <button className="actionButton" type="button" onClick={() => setActiveView("profile")}>
+                    Open profile
                   </button>
+                )}
+                {user.userTag === "employee" && (
+                  <button className="actionButton" type="button" onClick={() => setActiveView("jobs")}>
+                    Open jobs
+                  </button>
+                )}
+                <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("applications")}>
+                  Open applications
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="stack messageInboxPanel">
+                <div className="card">
+                  <h2>Inbox</h2>
+                  <p className="muted">Verified users can message each other after connecting through the platform.</p>
                 </div>
-              </>
-            )}
-          </div>
+                {conversations.length > 0 ? (
+                  conversations.map((conversation) => (
+                    <button
+                      key={conversation.conversationId}
+                      className="conversationButton"
+                      type="button"
+                      onClick={() => setSelectedRecipientId(conversation.participant.id)}
+                    >
+                      <div className="headerRow">
+                        <strong>{conversation.participant.fullName}</strong>
+                        <span className="pill">{conversation.unreadCount} unread</span>
+                      </div>
+                      <div className="muted">{conversation.participant.tradeType ?? conversation.participant.businessName ?? conversation.participant.userTag}</div>
+                      <div>{conversation.latestMessage.messageText}</div>
+                    </button>
+                  ))
+                ) : (
+                  <div className="card">
+                    <p className="muted">No conversations yet. Conversations start after applications and hiring decisions, or when you choose a verified contact on the right.</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="stack messageComposerPanel">
+                <div className="card">
+                  <h3>Start or open a conversation</h3>
+                  <p className="muted" style={{ marginBottom: 12 }}>
+                    Pick a verified person to open the message thread. Existing conversations will load automatically.
+                  </p>
+                  <select value={selectedRecipientId} onChange={(event) => setSelectedRecipientId(event.target.value)}>
+                    <option value="">Choose a verified person</option>
+                    {availableMessageUsers.map((candidate) => (
+                      <option key={candidate.id} value={candidate.id}>
+                        {candidate.fullName} - {candidate.tradeType ?? candidate.businessName ?? candidate.userTag}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {selectedRecipientId && (
+                  <>
+                    <div className="card">
+                      <div className="headerRow">
+                        <div>
+                          <h3>{selectedMessageUser?.fullName ?? "Conversation"}</h3>
+                          <div className="muted">
+                            {selectedMessageUser?.tradeType ?? selectedMessageUser?.businessName ?? selectedMessageUser?.userTag ?? "Verified contact"}
+                          </div>
+                        </div>
+                        <div className="pillRow">
+                          <span className="pill">{selectedMessageUser?.verificationStatus ?? "verified"}</span>
+                          <span className="pill">{selectedConversation ? "Existing thread" : "New thread"}</span>
+                        </div>
+                      </div>
+                      <p className="muted" style={{ marginTop: 12 }}>
+                        {selectedConversation
+                          ? "This conversation is already active. Keep replies short, specific, and job-focused."
+                          : "This will start a new conversation once you send the first message."}
+                      </p>
+                    </div>
+                    <div className="messageThread card">
+                      {isLoadingThread ? (
+                        <div className="muted">Loading conversation...</div>
+                      ) : threadMessages.length > 0 ? (
+                        threadMessages.map((message) => (
+                          <article key={message.id} className={`messageBubble ${message.senderId === user?.id ? "sentBubble" : "receivedBubble"}`}>
+                            <strong>{message.senderId === user?.id ? "You" : "Them"}</strong>
+                            <div>{message.messageText}</div>
+                            <div className="muted">{new Date(message.sentAt).toLocaleString()}</div>
+                          </article>
+                        ))
+                      ) : (
+                        <div className="muted">No messages yet. Start the conversation.</div>
+                      )}
+                    </div>
+                    <div className="card stack">
+                      <h3>{selectedConversation ? "Reply" : "New message"}</h3>
+                      <p className="muted">
+                        Keep messages specific to the job, timeline, and next action so the handoff from applications stays clear.
+                      </p>
+                      <textarea rows={3} value={messageText} placeholder="Type your message" onChange={(event) => setMessageText(event.target.value)} />
+                      <button className="actionButton" type="button" disabled={isSendingMessage} onClick={() => void handleSendMessage()}>
+                        {isSendingMessage ? "Sending..." : selectedConversation ? "Send reply" : "Send message"}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </>
+          )}
         </section>
       )}
 
@@ -1899,10 +1813,9 @@ export function App() {
                 <h3>Business verification</h3>
                 <div className="pillRow" style={{ marginTop: 12 }}>
                   <span className="pill">{user.isBusinessVerified ? "Business verified" : "Verification pending"}</span>
-                  <span className="pill">{personaReady ? "Persona connected" : "Dev mode"}</span>
                 </div>
                 <p className="muted" style={{ marginTop: 12 }}>
-                  {verificationFlow || "Verification checks business documents before employers can publish jobs."}
+                  Verification checks your business details before job publishing unlocks.
                 </p>
                 {!user.isBusinessVerified && (
                   <button
@@ -1925,6 +1838,8 @@ export function App() {
                   ? "Create an account first."
                   : user.userTag === "employer" && !user.isBusinessVerified
                     ? "Finish your business profile, then complete verification so you can post jobs."
+                    : user.userTag === "employee" && !user.isVerified
+                      ? "Your profile is ready to apply for jobs. Messaging will unlock after account verification is complete."
                     : user.userTag === "employee" && !user.openToWork
                       ? "Turn on open to work so employers can discover you faster."
                       : "Your profile is ready enough to move into jobs, applications, and messaging."}
@@ -1933,9 +1848,16 @@ export function App() {
                 <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("jobs")}>
                   Open jobs
                 </button>
-                <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("messages")}>
-                  Open messages
-                </button>
+                {user?.isVerified && (
+                  <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("messages")}>
+                    Open messages
+                  </button>
+                )}
+                {!user?.isVerified && user?.userTag === "employee" && (
+                  <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("applications")}>
+                    Open applications
+                  </button>
+                )}
               </div>
             </div>
           </div>
