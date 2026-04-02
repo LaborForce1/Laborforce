@@ -51,6 +51,19 @@ export interface CreateJobInput {
   certificationsRequired?: string[];
 }
 
+export interface UpdateJobInput {
+  jobTitle: string;
+  tradeCategory: string;
+  description: string;
+  hourlyRateMin: number;
+  hourlyRateMax: number;
+  jobType: string;
+  benefits?: string;
+  countyLocation: string;
+  unionRequired?: boolean;
+  certificationsRequired?: string[];
+}
+
 const selectFields = `
   SELECT
     id,
@@ -299,5 +312,59 @@ export const jobsRepository = {
     );
 
     return mapJob(result.rows[0]);
+  },
+
+  async updateForEmployer(id: string, employerId: string, input: UpdateJobInput) {
+    const result = await query<JobListingRow>(
+      `
+        UPDATE job_listings
+        SET
+          job_title = $3,
+          trade_category = $4,
+          description = $5,
+          hourly_rate_min = $6,
+          hourly_rate_max = $7,
+          job_type = $8,
+          benefits = $9,
+          county_location = $10,
+          location_zip = $10,
+          union_required = $11,
+          certifications_required = $12::jsonb
+        WHERE id = $1 AND employer_id = $2
+        ${returningFields}
+      `,
+      [
+        id,
+        employerId,
+        input.jobTitle,
+        input.tradeCategory,
+        input.description,
+        input.hourlyRateMin,
+        input.hourlyRateMax,
+        input.jobType,
+        input.benefits ?? null,
+        input.countyLocation,
+        input.unionRequired ?? false,
+        JSON.stringify(input.certificationsRequired ?? [])
+      ]
+    );
+
+    const row = result.rows[0];
+    return row ? mapJob(row) : null;
+  },
+
+  async updateStatusForEmployer(id: string, employerId: string, status: Extract<ListingStatus, "filled" | "closed">) {
+    const result = await query<JobListingRow>(
+      `
+        UPDATE job_listings
+        SET status = $3
+        WHERE id = $1 AND employer_id = $2
+        ${returningFields}
+      `,
+      [id, employerId, status]
+    );
+
+    const row = result.rows[0];
+    return row ? mapJob(row) : null;
   }
 };

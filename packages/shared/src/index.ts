@@ -135,6 +135,12 @@ export interface JobApplication {
     hourlyRateMin: number;
     hourlyRateMax: number;
   };
+  employer?: {
+    id: string;
+    fullName: string;
+    businessName?: string | null;
+    verificationStatus: VerificationStatus;
+  };
 }
 
 export interface EmployerApplicationView {

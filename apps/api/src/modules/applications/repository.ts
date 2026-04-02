@@ -2,6 +2,7 @@ import type { ApplicationStatus, EmployerApplicationView, JobApplication } from 
 import { query } from "../../db/query.js";
 
 type ApplicantJobSummary = NonNullable<JobApplication["job"]>;
+type ApplicantEmployerSummary = NonNullable<JobApplication["employer"]>;
 
 interface ApplicationRow {
   id: string;
@@ -17,6 +18,10 @@ interface ApplicationRow {
   job_status: ApplicantJobSummary["status"];
   hourly_rate_min: string;
   hourly_rate_max: string;
+  employer_id: string;
+  employer_full_name: string;
+  employer_business_name: string | null;
+  employer_verification_status: ApplicantEmployerSummary["verificationStatus"];
 }
 
 interface EmployerApplicationRow {
@@ -55,6 +60,12 @@ function mapApplication(row: ApplicationRow): JobApplication {
       status: row.job_status,
       hourlyRateMin: Number(row.hourly_rate_min),
       hourlyRateMax: Number(row.hourly_rate_max)
+    },
+    employer: {
+      id: row.employer_id,
+      fullName: row.employer_full_name,
+      businessName: row.employer_business_name,
+      verificationStatus: row.employer_verification_status
     }
   };
 }
@@ -101,9 +112,14 @@ export const applicationsRepository = {
           COALESCE(job_listings.county_location, job_listings.location_zip) AS county_location,
           job_listings.status AS job_status,
           job_listings.hourly_rate_min,
-          job_listings.hourly_rate_max
+          job_listings.hourly_rate_max,
+          employer.id AS employer_id,
+          employer.full_name AS employer_full_name,
+          employer.business_name AS employer_business_name,
+          employer.verification_status AS employer_verification_status
         FROM applications
         INNER JOIN job_listings ON job_listings.id = applications.job_listing_id
+        INNER JOIN users employer ON employer.id = job_listings.employer_id
         WHERE applicant_id = $1
         ORDER BY applied_at DESC
       `,
@@ -204,9 +220,14 @@ export const applicationsRepository = {
           COALESCE(job_listings.county_location, job_listings.location_zip) AS county_location,
           job_listings.status AS job_status,
           job_listings.hourly_rate_min,
-          job_listings.hourly_rate_max
+          job_listings.hourly_rate_max,
+          employer.id AS employer_id,
+          employer.full_name AS employer_full_name,
+          employer.business_name AS employer_business_name,
+          employer.verification_status AS employer_verification_status
         FROM applications
         INNER JOIN job_listings ON job_listings.id = applications.job_listing_id
+        INNER JOIN users employer ON employer.id = job_listings.employer_id
         WHERE applicant_id = $1 AND job_listing_id = $2
         LIMIT 1
       `,
