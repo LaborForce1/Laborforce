@@ -657,6 +657,7 @@ export function App() {
       setSuccessMessage(response.message);
       await loadEmployerApplications(authState.accessToken);
       if (options?.recipientId && options.draftMessage && (status === "shortlisted" || status === "hired")) {
+        await loadConversations(authState.accessToken);
         openConversation(options.recipientId, options.draftMessage);
       }
     } catch (error) {
