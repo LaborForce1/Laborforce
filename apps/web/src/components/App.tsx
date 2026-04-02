@@ -1063,83 +1063,132 @@ export function App() {
 
       {activeView === "auth" && (
         <section style={{ marginTop: 24 }} className="card">
-          <div className="headerRow">
-            <div>
-              <h2>{authMode === "signup" ? "Create account" : "Sign in"}</h2>
-              <p className="muted">{authMode === "signup" ? "Start as an employee or employer." : "Use your LaborForce account."}</p>
+          {user ? (
+            <div className="stack">
+              <div className="headerRow">
+                <div>
+                  <h2>Account</h2>
+                  <p className="muted">You’re signed in and ready to keep moving through LaborForce.</p>
+                </div>
+                <button className="actionButton ghostButton" type="button" onClick={signOut}>
+                  Sign out
+                </button>
+              </div>
+
+              <div className="card">
+                <div className="headerRow">
+                  <div>
+                    <strong>{user.fullName}</strong>
+                    <div className="muted">{user.email}</div>
+                  </div>
+                  <div className="pillRow">
+                    <span className="pill">{user.userTag}</span>
+                    <span className="pill">{user.verificationStatus}</span>
+                  </div>
+                </div>
+                <p className="muted" style={{ marginTop: 12 }}>
+                  {user.userTag === "employer"
+                    ? user.isBusinessVerified
+                      ? "Your business profile is verified. You can publish jobs, review applicants, and move into chat."
+                      : "Finish business verification to publish jobs and move hiring forward."
+                    : user.isVerified
+                      ? "Your account is ready for applications and messaging."
+                      : "Your account is ready for jobs and applications. Messaging will unlock after verification is complete."}
+                </p>
+                <div className="pillRow" style={{ marginTop: 12 }}>
+                  <button className="actionButton" type="button" onClick={() => setActiveView("profile")}>
+                    Open profile
+                  </button>
+                  <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("jobs")}>
+                    Open jobs
+                  </button>
+                  <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("applications")}>
+                    Open applications
+                  </button>
+                </div>
+              </div>
             </div>
-            <button
-              className="actionButton ghostButton"
-              type="button"
-              onClick={() => setAuthMode((current) => (current === "login" ? "signup" : "login"))}
-            >
-              {authMode === "login" ? "Need an account?" : "Already have an account?"}
-            </button>
-          </div>
-
-          <form className="stack" style={{ marginTop: 18 }} onSubmit={handleAuthSubmit}>
-            {authMode === "signup" && (
-              <>
-                <div className="feedMiniNav">
-                  <button
-                    className={`miniNavButton ${selectedTag === "employee" ? "miniNavActive" : ""}`}
-                    type="button"
-                    onClick={() => setSelectedTag("employee")}
-                  >
-                    Employee
-                  </button>
-                  <button
-                    className={`miniNavButton ${selectedTag === "employer" ? "miniNavActive" : ""}`}
-                    type="button"
-                    onClick={() => setSelectedTag("employer")}
-                  >
-                    Employer
-                  </button>
+          ) : (
+            <>
+              <div className="headerRow">
+                <div>
+                  <h2>{authMode === "signup" ? "Create account" : "Sign in"}</h2>
+                  <p className="muted">{authMode === "signup" ? "Start as an employee or employer." : "Use your LaborForce account."}</p>
                 </div>
-                <div className="splitFields">
-                  <label className="field">
-                    <span>Full name</span>
-                    <input value={authForm.fullName} onChange={(event) => setAuthForm((current) => ({ ...current, fullName: event.target.value }))} required />
-                  </label>
-                  <label className="field">
-                    <span>Phone</span>
-                    <input value={authForm.phone} onChange={(event) => setAuthForm((current) => ({ ...current, phone: event.target.value }))} required />
-                  </label>
-                </div>
-                <div className="splitFields">
-                  <label className="field">
-                    <span>ZIP code</span>
-                    <input value={authForm.zipCode} onChange={(event) => setAuthForm((current) => ({ ...current, zipCode: event.target.value }))} required />
-                  </label>
-                  {selectedTag === "employer" && (
-                    <label className="field">
-                      <span>Business name</span>
-                      <input value={authForm.businessName} onChange={(event) => setAuthForm((current) => ({ ...current, businessName: event.target.value }))} required />
-                    </label>
-                  )}
-                  {selectedTag === "employee" && (
-                    <label className="field">
-                      <span>Trade</span>
-                      <input value={authForm.tradeType} onChange={(event) => setAuthForm((current) => ({ ...current, tradeType: event.target.value }))} />
-                    </label>
-                  )}
-                </div>
-              </>
-            )}
+                <button
+                  className="actionButton ghostButton"
+                  type="button"
+                  onClick={() => setAuthMode((current) => (current === "login" ? "signup" : "login"))}
+                >
+                  {authMode === "login" ? "Need an account?" : "Already have an account?"}
+                </button>
+              </div>
 
-            <label className="field">
-              <span>Email</span>
-              <input type="email" value={authForm.email} onChange={(event) => setAuthForm((current) => ({ ...current, email: event.target.value }))} required />
-            </label>
-            <label className="field">
-              <span>Password</span>
-              <input type="password" value={authForm.password} onChange={(event) => setAuthForm((current) => ({ ...current, password: event.target.value }))} required />
-            </label>
+              <form className="stack" style={{ marginTop: 18 }} onSubmit={handleAuthSubmit}>
+                {authMode === "signup" && (
+                  <>
+                    <div className="feedMiniNav">
+                      <button
+                        className={`miniNavButton ${selectedTag === "employee" ? "miniNavActive" : ""}`}
+                        type="button"
+                        onClick={() => setSelectedTag("employee")}
+                      >
+                        Employee
+                      </button>
+                      <button
+                        className={`miniNavButton ${selectedTag === "employer" ? "miniNavActive" : ""}`}
+                        type="button"
+                        onClick={() => setSelectedTag("employer")}
+                      >
+                        Employer
+                      </button>
+                    </div>
+                    <div className="splitFields">
+                      <label className="field">
+                        <span>Full name</span>
+                        <input value={authForm.fullName} onChange={(event) => setAuthForm((current) => ({ ...current, fullName: event.target.value }))} required />
+                      </label>
+                      <label className="field">
+                        <span>Phone</span>
+                        <input value={authForm.phone} onChange={(event) => setAuthForm((current) => ({ ...current, phone: event.target.value }))} required />
+                      </label>
+                    </div>
+                    <div className="splitFields">
+                      <label className="field">
+                        <span>ZIP code</span>
+                        <input value={authForm.zipCode} onChange={(event) => setAuthForm((current) => ({ ...current, zipCode: event.target.value }))} required />
+                      </label>
+                      {selectedTag === "employer" && (
+                        <label className="field">
+                          <span>Business name</span>
+                          <input value={authForm.businessName} onChange={(event) => setAuthForm((current) => ({ ...current, businessName: event.target.value }))} required />
+                        </label>
+                      )}
+                      {selectedTag === "employee" && (
+                        <label className="field">
+                          <span>Trade</span>
+                          <input value={authForm.tradeType} onChange={(event) => setAuthForm((current) => ({ ...current, tradeType: event.target.value }))} />
+                        </label>
+                      )}
+                    </div>
+                  </>
+                )}
 
-            <button className="actionButton" disabled={isSubmittingAuth} type="submit">
-              {isSubmittingAuth ? "Saving..." : authMode === "signup" ? "Create account" : "Sign in"}
-            </button>
-          </form>
+                <label className="field">
+                  <span>Email</span>
+                  <input type="email" value={authForm.email} onChange={(event) => setAuthForm((current) => ({ ...current, email: event.target.value }))} required />
+                </label>
+                <label className="field">
+                  <span>Password</span>
+                  <input type="password" value={authForm.password} onChange={(event) => setAuthForm((current) => ({ ...current, password: event.target.value }))} required />
+                </label>
+
+                <button className="actionButton" disabled={isSubmittingAuth} type="submit">
+                  {isSubmittingAuth ? "Saving..." : authMode === "signup" ? "Create account" : "Sign in"}
+                </button>
+              </form>
+            </>
+          )}
         </section>
       )}
 
