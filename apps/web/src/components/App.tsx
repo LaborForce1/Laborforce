@@ -810,10 +810,10 @@ export function App() {
       <section className="hero">
         <div className="headerRow">
           <div>
-            <div className="badge">LaborForce MVP</div>
-            <h1 style={{ marginTop: 12 }}>Verified hiring for blue-collar work.</h1>
+            <div className="badge">LaborForce</div>
+            <h1 style={{ marginTop: 12 }}>Hire skilled workers and move from application to chat faster.</h1>
             <p className="muted" style={{ marginTop: 12 }}>
-              The priority is the real hiring flow: auth, profile, jobs, applications, and messaging.
+              LaborForce keeps profiles, jobs, applications, and messaging connected so both sides always know the next step.
             </p>
           </div>
           <div className="pillRow">
@@ -845,12 +845,12 @@ export function App() {
           </div>
         ) : (
           <div className="card">
-            <strong>Start by creating an account or logging in.</strong>
+            <strong>Create an account to start hiring or applying.</strong>
             <p className="muted" style={{ marginTop: 8 }}>
-              Employee and employer flows are wired to the real LaborForce API.
+              Choose employer or worker, finish your profile, and LaborForce will guide you into the next real step.
             </p>
             <button className="actionButton" style={{ marginTop: 12 }} type="button" onClick={() => setActiveView("auth")}>
-              Open auth
+              Get started
             </button>
           </div>
         )}
@@ -863,9 +863,9 @@ export function App() {
           <div className="stack roomyStack">
             {!user && (
               <div className="card">
-                <h2>Start here</h2>
+                <h2>Get started</h2>
                 <p className="muted" style={{ marginTop: 12 }}>
-                  Create an account, finish your profile, then move into jobs, applications, and messaging.
+                  Create your account, finish your profile, and move into jobs, applications, and messaging without losing your place.
                 </p>
                 <div className="pillRow" style={{ marginTop: 12 }}>
                   <button className="actionButton" type="button" onClick={() => setActiveView("auth")}>
@@ -1028,21 +1028,20 @@ export function App() {
             </div>
 
             <div className="card">
-              <h3>MVP focus</h3>
+              <h3>How LaborForce works</h3>
               <div className="pillRow" style={{ marginTop: 12 }}>
-                <span className="pill">Auth</span>
-                <span className="pill">Profiles</span>
-                <span className="pill">Jobs</span>
-                <span className="pill">Apps</span>
+                <span className="pill">Create profile</span>
+                <span className="pill">Post or apply</span>
+                <span className="pill">Review updates</span>
                 <span className="pill">Chat</span>
               </div>
               <p className="muted" style={{ marginTop: 12 }}>
-                Keep the product centered on hiring flow cleanup before production verification, Stripe, or extra features.
+                Finish your profile, post or apply to the right jobs, review updates fast, and move into chat when both sides are ready.
               </p>
             </div>
 
             <div className="card">
-              <h3>Fast links</h3>
+              <h3>Quick access</h3>
               <div className="pillRow" style={{ marginTop: 12 }}>
                 <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("jobs")}>
                   Jobs
