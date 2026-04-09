@@ -6,6 +6,7 @@ import { HttpError } from "../../utils/http.js";
 import { usersRepository } from "../users/repository.js";
 import { jobsRepository } from "../jobs/repository.js";
 import { applicationsRepository } from "./repository.js";
+import { enqueueApplicationFollowUpReminder } from "../../queues/reminders.js";
 
 export const applicationsRouter = Router();
 
@@ -101,6 +102,15 @@ applicationsRouter.post("/jobs/:jobId/apply", requireAuth, asyncHandler(async (r
   }
 
   const application = await applicationsRepository.create(user.id, jobId, payload.message);
+
+  const followUpDueAt = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
+  await enqueueApplicationFollowUpReminder({
+    employerId: job.employerId,
+    applicationId: application.id,
+    applicantName: user.fullName,
+    jobTitle: job.jobTitle,
+    dueAt: followUpDueAt
+  });
 
   res.status(201).json({
     application,
