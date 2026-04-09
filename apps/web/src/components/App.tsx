@@ -288,6 +288,35 @@ function buildWorkerBlockers(user: User | null) {
   ].filter(Boolean) as string[];
 }
 
+function buildEmployerBlockers(user: User | null) {
+  if (!user || user.userTag !== "employer") {
+    return [];
+  }
+
+  return [
+    !user.businessName?.trim() ? "Add business name" : null,
+    !user.bio?.trim() ? "Write business bio" : null,
+    !user.isBusinessVerified ? "Finish business verification" : null
+  ].filter(Boolean) as string[];
+}
+
+function getEmployerApplicationSortRank(status: EmployerApplicationView["status"]) {
+  switch (status) {
+    case "submitted":
+      return 0;
+    case "viewed":
+      return 1;
+    case "shortlisted":
+      return 2;
+    case "hired":
+      return 3;
+    case "rejected":
+      return 4;
+    default:
+      return 5;
+  }
+}
+
 export function App() {
   const [activeView, setActiveView] = useState<View>("overview");
   const [authMode, setAuthMode] = useState<AuthMode>("login");
@@ -373,6 +402,27 @@ export function App() {
     incomingApplications.find((application) => application.status === "submitted" || application.status === "viewed") ??
     incomingApplications[0] ??
     null;
+  const sortedEmployerApplications = useMemo(
+    () =>
+      [...incomingApplications].sort((left, right) => {
+        const statusRank = getEmployerApplicationSortRank(left.status) - getEmployerApplicationSortRank(right.status);
+        if (statusRank !== 0) {
+          return statusRank;
+        }
+
+        return new Date(right.appliedAt).getTime() - new Date(left.appliedAt).getTime();
+      }),
+    [incomingApplications]
+  );
+  const employerApplicationStatusCounts = useMemo(
+    () => ({
+      submitted: incomingApplications.filter((application) => application.status === "submitted").length,
+      viewed: incomingApplications.filter((application) => application.status === "viewed").length,
+      shortlisted: incomingApplications.filter((application) => application.status === "shortlisted").length,
+      hired: incomingApplications.filter((application) => application.status === "hired").length
+    }),
+    [incomingApplications]
+  );
   const employerNeedsFirstJob = user?.userTag === "employer" && employerJobs.length === 0;
   const workerNeedsFirstApplication = user?.userTag === "employee" && applications.length === 0;
   const messagingLocked = Boolean(user && !user.isVerified);
@@ -421,6 +471,7 @@ export function App() {
             : "Your worker profile is ready to support real hiring conversations."
       : null;
   const workerBlockers = useMemo(() => buildWorkerBlockers(user), [user]);
+  const employerBlockers = useMemo(() => buildEmployerBlockers(user), [user]);
 
   useEffect(() => {
     const raw = window.localStorage.getItem(AUTH_STORAGE_KEY);
@@ -998,6 +1049,15 @@ export function App() {
               {completedChecklistCount}/{profileChecklist.length} onboarding steps done
             </p>
             {workerReadinessSummary && <p className="muted" style={{ marginTop: 8 }}>{workerReadinessSummary}</p>}
+            {user.userTag === "employer" && employerBlockers.length > 0 && (
+              <div className="pillRow" style={{ marginTop: 12 }}>
+                {employerBlockers.map((blocker) => (
+                  <span key={blocker} className="pill">
+                    {blocker}
+                  </span>
+                ))}
+              </div>
+            )}
             {user.userTag === "employee" && (
               <>
                 {workerBlockers.length > 0 && (
@@ -1108,6 +1168,15 @@ export function App() {
                       </>
                     )}
                   </div>
+                  {employerBlockers.length > 0 && (
+                    <div className="pillRow" style={{ marginTop: 12 }}>
+                      {employerBlockers.map((blocker) => (
+                        <span key={blocker} className="pill">
+                          {blocker}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   {!needsBusinessVerification && employerPriorityApplication && !employerPriorityApplicantVerified && (
                     <p className="muted" style={{ marginTop: 12 }}>
                       Review the applicant first. Messaging unlocks after the worker is verified.
@@ -1227,20 +1296,36 @@ export function App() {
               </div>
             ) : (
               <div className="card">
-                <h3>What belongs here</h3>
+                <h3>Employer next moves</h3>
                 <div className="stack" style={{ marginTop: 12 }}>
                   <div className="betaItem">
-                    <strong>Work proof</strong>
-                    <p className="muted" style={{ marginTop: 8 }}>Finished projects, before-and-afters, certs, and jobsite updates.</p>
+                    <strong>Finish the foundation</strong>
+                    <p className="muted" style={{ marginTop: 8 }}>
+                      {user?.isBusinessVerified
+                        ? "Your verification is done. Keep your hiring pipeline full with clear job postings."
+                        : "Complete business verification so job publishing and hiring can move without friction."}
+                    </p>
                   </div>
                   <div className="betaItem">
-                    <strong>Trade knowledge</strong>
-                    <p className="muted" style={{ marginTop: 8 }}>Quick lessons, equipment tips, code reminders, and how-to clips.</p>
+                    <strong>Publish strong jobs</strong>
+                    <p className="muted" style={{ marginTop: 8 }}>Use specific titles, pay ranges, and job details so better applicants come in faster.</p>
                   </div>
                   <div className="betaItem">
-                    <strong>Availability</strong>
-                    <p className="muted" style={{ marginTop: 8 }}>Open-to-work updates, hiring wins, and local crew needs.</p>
+                    <strong>Reply quickly</strong>
+                    <p className="muted" style={{ marginTop: 8 }}>When applicants come in, review and move them forward while the lead is still warm.</p>
                   </div>
+                  {employerBlockers.length > 0 && (
+                    <div className="betaItem">
+                      <strong>Current blockers</strong>
+                      <div className="pillRow" style={{ marginTop: 8 }}>
+                        {employerBlockers.map((blocker) => (
+                          <span key={blocker} className="pill">
+                            {blocker}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -1289,16 +1374,23 @@ export function App() {
               </div>
             ) : (
               <div className="card">
-                <h3>MVP focus</h3>
-                <div className="pillRow" style={{ marginTop: 12 }}>
-                  <span className="pill">Auth</span>
-                  <span className="pill">Profiles</span>
-                  <span className="pill">Jobs</span>
-                  <span className="pill">Apps</span>
-                  <span className="pill">Chat</span>
+                <h3>Hiring readiness</h3>
+                <div className="stack" style={{ marginTop: 12 }}>
+                  <div className="headerRow">
+                    <span className="muted">Business name</span>
+                    <strong>{user?.businessName?.trim() || "Missing"}</strong>
+                  </div>
+                  <div className="headerRow">
+                    <span className="muted">Bio</span>
+                    <strong>{user?.bio?.trim() ? "Added" : "Missing"}</strong>
+                  </div>
+                  <div className="headerRow">
+                    <span className="muted">Verification</span>
+                    <strong>{user?.isBusinessVerified ? "Complete" : "Pending"}</strong>
+                  </div>
                 </div>
                 <p className="muted" style={{ marginTop: 12 }}>
-                  Keep the product centered on hiring flow cleanup before production verification, Stripe, or extra features.
+                  Employers move faster when the business profile is complete and verification is out of the way before posting jobs.
                 </p>
               </div>
             )}
@@ -1324,13 +1416,13 @@ export function App() {
                 ) : (
                   <>
                     <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("jobs")}>
-                      Jobs
+                      Hiring jobs
                     </button>
                     <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("applications")}>
-                      Apps
+                      Applicants
                     </button>
-                    <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("messages")}>
-                      Chat
+                    <button className="actionButton ghostButton" type="button" onClick={() => setActiveView(needsBusinessVerification ? "profile" : "messages")}>
+                      {needsBusinessVerification ? "Finish verification" : "Chat"}
                     </button>
                     <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("profile")}>
                       Profile
@@ -1452,6 +1544,26 @@ export function App() {
               </div>
             </div>
           )}
+
+          {authMode === "signup" && selectedTag === "employer" && (
+            <div className="card" style={{ marginTop: 18 }}>
+              <h3>Employer first steps</h3>
+              <div className="stack" style={{ marginTop: 12 }}>
+                <div className="checkItem">
+                  <div className="checkDot pendingDot" />
+                  <div>Finish your business profile so workers understand who is hiring and what kind of company you are.</div>
+                </div>
+                <div className="checkItem">
+                  <div className="checkDot pendingDot" />
+                  <div>Complete business verification before trying to publish jobs.</div>
+                </div>
+                <div className="checkItem">
+                  <div className="checkDot pendingDot" />
+                  <div>Create one clear draft job first, then publish it and review applicants quickly.</div>
+                </div>
+              </div>
+            </div>
+          )}
         </section>
       )}
 
@@ -1554,6 +1666,9 @@ export function App() {
                                 Complete business verification before publishing this draft.
                               </div>
                             )}
+                            <p className="muted" style={{ marginTop: 12 }}>
+                              Drafts stay private until you publish them. Tighten the title, pay, and description before sending them live.
+                            </p>
                             <button
                               className="actionButton"
                               style={{ marginTop: 12 }}
@@ -1565,11 +1680,32 @@ export function App() {
                             </button>
                           </>
                         )}
+                        {job.status === "active" && (
+                          <p className="muted" style={{ marginTop: 12 }}>
+                            This job is live right now. Keep an eye on applicants and move quickly on strong leads.
+                          </p>
+                        )}
+                        {job.status === "filled" && (
+                          <p className="muted" style={{ marginTop: 12 }}>
+                            This role is marked filled. Keep it for reference or close it when hiring is fully wrapped.
+                          </p>
+                        )}
+                        {job.status === "closed" && (
+                          <p className="muted" style={{ marginTop: 12 }}>
+                            This role is closed. You can still review what happened here, but it is no longer live to applicants.
+                          </p>
+                        )}
                       </article>
                     ))
                   ) : (
                     <div className="stack">
                       <p className="muted">No jobs created yet. Start with a draft so applicants can move into your pipeline once you publish.</p>
+                      <div className="betaItem">
+                        <strong>Best first job</strong>
+                        <p className="muted" style={{ marginTop: 8 }}>
+                          Start with one clear role, one county, and a realistic pay range so your first pipeline is easy to manage.
+                        </p>
+                      </div>
                       <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("jobs")}>
                         Create first job
                       </button>
@@ -1736,6 +1872,20 @@ export function App() {
                 <p className="muted" style={{ marginTop: 12 }}>
                   Employers must complete business verification before public job publishing unlocks.
                 </p>
+                <div className="stack" style={{ marginTop: 12 }}>
+                  <div className="headerRow">
+                    <span className="muted">Drafts</span>
+                    <strong>{employerDrafts.length}</strong>
+                  </div>
+                  <div className="headerRow">
+                    <span className="muted">Active jobs</span>
+                    <strong>{employerActiveJobs.length}</strong>
+                  </div>
+                  <div className="headerRow">
+                    <span className="muted">Applicants</span>
+                    <strong>{incomingApplications.length}</strong>
+                  </div>
+                </div>
                 {user?.userTag === "employer" && !user.isBusinessVerified && (
                   <>
                     <p className="muted" style={{ marginTop: 12 }}>
@@ -1811,6 +1961,11 @@ export function App() {
                   <span>Certifications required</span>
                   <input value={jobForm.certificationsRequired} onChange={(event) => setJobForm((current) => ({ ...current, certificationsRequired: event.target.value }))} placeholder="OSHA 10, EPA 608" />
                 </label>
+                <p className="muted">
+                  {editingJobId
+                    ? "Update the details that affect applicant quality most: title, pay, county, and the description."
+                    : "Create the draft first, then review it in My jobs before publishing it live."}
+                </p>
                 <button className="actionButton" disabled={isPostingJob} type="submit">
                   {isPostingJob ? "Saving..." : editingJobId ? "Save changes" : "Create draft job"}
                 </button>
@@ -2010,9 +2165,17 @@ export function App() {
             ) : (
               <div className="card">
                 <h2>Employer review queue</h2>
+                {incomingApplications.length > 0 && (
+                  <div className="pillRow" style={{ marginTop: 12 }}>
+                    <span className="pill">{employerApplicationStatusCounts.submitted} new</span>
+                    <span className="pill">{employerApplicationStatusCounts.viewed} viewed</span>
+                    <span className="pill">{employerApplicationStatusCounts.shortlisted} shortlisted</span>
+                    <span className="pill">{employerApplicationStatusCounts.hired} hired</span>
+                  </div>
+                )}
                 {incomingApplications.length > 0 ? (
                   <div className="stack" style={{ marginTop: 12 }}>
-                    {incomingApplications.map((application) => (
+                    {sortedEmployerApplications.map((application) => (
                       <div key={application.id} className="applicationItem">
                         <div className="headerRow">
                           <div>
@@ -2029,6 +2192,21 @@ export function App() {
                           <span className="pill">{application.applicant.ratingCount} ratings</span>
                           <span className="pill">{application.employerViewed ? "Viewed" : "New applicant"}</span>
                         </div>
+                        {application.status === "submitted" && (
+                          <div className="notice successNotice" style={{ marginTop: 12 }}>
+                            Fresh lead. Review this applicant quickly while they are still engaged.
+                          </div>
+                        )}
+                        {application.status === "shortlisted" && (
+                          <div className="notice successNotice" style={{ marginTop: 12 }}>
+                            This candidate is already warm. Move to chat or make the next decision while momentum is high.
+                          </div>
+                        )}
+                        {application.status === "hired" && (
+                          <div className="notice successNotice" style={{ marginTop: 12 }}>
+                            Hiring is moving forward here. Confirm details and keep communication tight.
+                          </div>
+                        )}
                         {application.message && <p style={{ marginTop: 10 }}>{application.message}</p>}
                         {application.applicant.verificationStatus === "verified" ? (
                           <div className="pillRow" style={{ marginTop: 12 }}>
@@ -2080,6 +2258,12 @@ export function App() {
                 ) : (
                   <div className="stack" style={{ marginTop: 12 }}>
                     <p className="muted">No employer-side applications yet. Publish a job and qualified workers will start appearing here.</p>
+                    <div className="betaItem">
+                      <strong>Best next move</strong>
+                      <p className="muted" style={{ marginTop: 8 }}>
+                        Finish verification, tighten your draft, then publish one clear role so applicants have something real to respond to.
+                      </p>
+                    </div>
                     <div className="pillRow">
                       <button className="actionButton" type="button" onClick={() => setActiveView("jobs")}>
                         Open jobs
@@ -2118,6 +2302,24 @@ export function App() {
                   ? "Messaging unlocks after your account is verified. Finish business verification first, then keep hiring moving through jobs and applications."
                   : "Messaging unlocks after your account is verified. For now, keep applying, keep your profile strong, and watch Apps for status changes."}
               </p>
+              {user.userTag === "employer" && (
+                <div className="stack" style={{ marginTop: 12 }}>
+                  <div className="betaItem">
+                    <strong>Best thing to do right now</strong>
+                    <p className="muted" style={{ marginTop: 8 }}>
+                      {employerPriorityApplication
+                        ? `Review ${employerPriorityApplication.applicant.fullName} for ${employerPriorityApplication.job.jobTitle}, then move the application forward.`
+                        : "Finish verification, publish a strong job, and bring in your first applicants."}
+                    </p>
+                  </div>
+                  <div className="betaItem">
+                    <strong>What unlocks chat</strong>
+                    <p className="muted" style={{ marginTop: 8 }}>
+                      Your employer account needs verification first, and the applicant also needs to be verified before chat opens.
+                    </p>
+                  </div>
+                </div>
+              )}
               {user.userTag === "employee" && (
                 <div className="stack" style={{ marginTop: 12 }}>
                   <div className="betaItem">
@@ -2158,6 +2360,22 @@ export function App() {
                 <div className="card">
                   <h2>Inbox</h2>
                   <p className="muted">Verified users can message each other after connecting through the platform.</p>
+                  {user.userTag === "employer" && employerPriorityApplication?.applicant.verificationStatus === "verified" && (
+                    <div className="pillRow" style={{ marginTop: 12 }}>
+                      <button
+                        className="actionButton ghostButton"
+                        type="button"
+                        onClick={() =>
+                          openConversation(
+                            employerPriorityApplication.applicant.id,
+                            `Hi ${employerPriorityApplication.applicant.fullName.split(" ")[0]}, I wanted to follow up on ${employerPriorityApplication.job.jobTitle}. Are you available to talk through next steps?`
+                          )
+                        }
+                      >
+                        Resume best applicant
+                      </button>
+                    </div>
+                  )}
                   {user.userTag === "employee" && workerPriorityApplication?.employer && workerPriorityEmployerVerified && (
                     <div className="pillRow" style={{ marginTop: 12 }}>
                       <button
@@ -2177,6 +2395,11 @@ export function App() {
                   {user.userTag === "employee" && workerPriorityApplication && (
                     <p className="muted" style={{ marginTop: 12 }}>
                       Current best lead: {workerPriorityApplication.job?.jobTitle ?? "Application"} with {workerPriorityApplication.employer?.fullName ?? "the employer"}.
+                    </p>
+                  )}
+                  {user.userTag === "employer" && employerPriorityApplication && (
+                    <p className="muted" style={{ marginTop: 12 }}>
+                      Current best applicant: {employerPriorityApplication.applicant.fullName} for {employerPriorityApplication.job.jobTitle}.
                     </p>
                   )}
                 </div>
@@ -2240,6 +2463,12 @@ export function App() {
                           <span className="pill">{workerPriorityApplication.job?.jobTitle ?? "Application follow-up"}</span>
                         </div>
                       )}
+                      {user.userTag === "employer" && employerPriorityApplication?.applicant.id === selectedRecipientId && (
+                        <div className="pillRow" style={{ marginTop: 12 }}>
+                          <span className="pill">Best applicant</span>
+                          <span className="pill">{employerPriorityApplication.job.jobTitle}</span>
+                        </div>
+                      )}
                       <p className="muted" style={{ marginTop: 12 }}>
                         {selectedConversation
                           ? "This conversation is already active. Keep replies short, specific, and job-focused."
@@ -2269,6 +2498,11 @@ export function App() {
                       {user.userTag === "employee" && workerPriorityApplication?.employer?.id === selectedRecipientId && (
                         <div className="notice successNotice">
                           This is tied to your strongest live lead. Confirm timing, next steps, and job details while the conversation is active.
+                        </div>
+                      )}
+                      {user.userTag === "employer" && employerPriorityApplication?.applicant.id === selectedRecipientId && (
+                        <div className="notice successNotice">
+                          This is tied to your strongest current applicant. Confirm availability, next steps, and decision timing while they are engaged.
                         </div>
                       )}
                       <textarea rows={3} value={messageText} placeholder="Type your message" onChange={(event) => setMessageText(event.target.value)} />
@@ -2358,6 +2592,34 @@ export function App() {
                     <p className="profileBio">
                       {user.bio?.trim() || "Add a short bio that tells employers what kind of jobs you want and what you do best."}
                     </p>
+                  </>
+                )}
+                {user.userTag === "employer" && (
+                  <>
+                    <div className="pillRow" style={{ marginTop: 12 }}>
+                      <span className="pill">{user.businessName?.trim() || "Business name missing"}</span>
+                      <span className="pill">{user.isBusinessVerified ? "Business verified" : "Verification pending"}</span>
+                    </div>
+                    <div className="stack" style={{ marginTop: 18 }}>
+                      <div className="betaItem">
+                        <strong>What workers need to trust</strong>
+                        <p className="muted" style={{ marginTop: 8 }}>
+                          A clear business name, a short company bio, and finished verification all make applicants more likely to take your job seriously.
+                        </p>
+                      </div>
+                      {employerBlockers.length > 0 && (
+                        <div className="betaItem">
+                          <strong>Current setup blockers</strong>
+                          <div className="pillRow" style={{ marginTop: 8 }}>
+                            {employerBlockers.map((blocker) => (
+                              <span key={blocker} className="pill">
+                                {blocker}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </>
                 )}
                 <div className="pillRow" style={{ marginTop: 12 }}>
@@ -2456,6 +2718,10 @@ export function App() {
                   ? "Create an account first."
                   : user.userTag === "employer" && !user.isBusinessVerified
                     ? "Finish your business profile, then complete verification so you can post jobs."
+                    : user.userTag === "employer" && !user.businessName?.trim()
+                      ? "Add your business name so workers know who is hiring."
+                      : user.userTag === "employer" && !user.bio?.trim()
+                        ? "Add a short company bio so applicants understand the kind of work and team behind the job."
                     : user.userTag === "employee" && !user.isVerified
                       ? "Your profile is ready to apply for jobs. Messaging will unlock after account verification is complete."
                       : user.userTag === "employee" && !user.tradeType?.trim()
