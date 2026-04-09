@@ -227,6 +227,44 @@ function buildProfileChecklist(user: User | null) {
   return items;
 }
 
+function buildWorkerHeadline(user: User) {
+  if (user.userTag !== "employee") {
+    return user.businessName?.trim() || "Complete your profile to unlock the hiring flow.";
+  }
+
+  const parts = [
+    user.tradeType?.trim() || "Skilled worker",
+    user.yearsExperience ? `${user.yearsExperience}+ years experience` : null,
+    user.openToWork ? "Open to work now" : "Not marked open to work yet"
+  ].filter(Boolean);
+
+  return parts.join(" • ");
+}
+
+function buildWorkerStrengths(user: User | null) {
+  if (!user || user.userTag !== "employee") {
+    return [];
+  }
+
+  return [
+    {
+      label: "Availability",
+      value: user.openToWork ? "Ready for new work" : "Needs open-to-work turned on",
+      hint: user.openToWork ? "Employers can discover you right now." : "Turn it on to show up faster in employer flows."
+    },
+    {
+      label: "Trade focus",
+      value: user.tradeType?.trim() || "Add your main trade",
+      hint: user.tradeType?.trim() ? "This is the first thing employers use to scan fit." : "Be specific: electrician, HVAC, drywall, plumbing."
+    },
+    {
+      label: "Trust signal",
+      value: user.trustBadge || (user.isVerified ? "Verified worker" : "Verification pending"),
+      hint: user.isVerified ? "Your account already looks more trustworthy." : "A stronger profile helps the verification flow feel legitimate."
+    }
+  ];
+}
+
 export function App() {
   const [activeView, setActiveView] = useState<View>("feed");
   const [authMode, setAuthMode] = useState<AuthMode>("login");
@@ -328,6 +366,17 @@ export function App() {
 
   const profileChecklist = useMemo(() => buildProfileChecklist(user), [user]);
   const completedChecklistCount = profileChecklist.filter((item) => item.complete).length;
+  const workerStrengths = useMemo(() => buildWorkerStrengths(user), [user]);
+  const workerReadinessSummary =
+    user?.userTag === "employee"
+      ? !user.tradeType?.trim()
+        ? "Add your trade so employers know what kind of work to send you."
+        : !user.openToWork
+          ? "Turn on open to work so you show up as available."
+          : !user.bio?.trim()
+            ? "Add a short bio so employers know what you do best."
+            : "Your worker profile is ready to support real hiring conversations."
+      : null;
 
   useEffect(() => {
     const raw = window.localStorage.getItem(AUTH_STORAGE_KEY);
@@ -961,10 +1010,25 @@ export function App() {
               <span className="pill">{user.verificationStatus}</span>
               {user.tradeType && <span className="pill">{user.tradeType}</span>}
               {user.businessName && <span className="pill">{user.businessName}</span>}
+              {user.userTag === "employee" && <span className="pill">{user.openToWork ? "Open to work" : "Availability off"}</span>}
             </div>
             <p className="muted" style={{ marginTop: 12 }}>
               {completedChecklistCount}/{profileChecklist.length} onboarding steps done
             </p>
+            {workerReadinessSummary && <p className="muted" style={{ marginTop: 8 }}>{workerReadinessSummary}</p>}
+            {user.userTag === "employee" && (
+              <div className="pillRow" style={{ marginTop: 12 }}>
+                <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("profile")}>
+                  Finish profile
+                </button>
+                <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("jobs")}>
+                  Browse jobs
+                </button>
+                <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("applications")}>
+                  Open apps
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <div className="card">
@@ -1131,23 +1195,49 @@ export function App() {
           </div>
 
           <div className="stack sideRail">
-            <div className="card">
-              <h3>What belongs here</h3>
-              <div className="stack" style={{ marginTop: 12 }}>
-                <div className="betaItem">
-                  <strong>Work proof</strong>
-                  <p className="muted" style={{ marginTop: 8 }}>Finished projects, before-and-afters, certs, and jobsite updates.</p>
-                </div>
-                <div className="betaItem">
-                  <strong>Trade knowledge</strong>
-                  <p className="muted" style={{ marginTop: 8 }}>Quick lessons, equipment tips, code reminders, and how-to clips.</p>
-                </div>
-                <div className="betaItem">
-                  <strong>Availability</strong>
-                  <p className="muted" style={{ marginTop: 8 }}>Open-to-work updates, hiring wins, and local crew needs.</p>
+            {user?.userTag === "employee" ? (
+              <div className="card">
+                <h3>Worker next moves</h3>
+                <div className="stack" style={{ marginTop: 12 }}>
+                  <div className="betaItem">
+                    <strong>Get discovered</strong>
+                    <p className="muted" style={{ marginTop: 8 }}>
+                      {user.openToWork ? "You are marked open to work. Keep your trade and bio sharp." : "Turn on open to work so employers know you are available."}
+                    </p>
+                  </div>
+                  <div className="betaItem">
+                    <strong>Find the right jobs</strong>
+                    <p className="muted" style={{ marginTop: 8 }}>
+                      Search by trade, county, or job description, then apply with a strong intro.
+                    </p>
+                  </div>
+                  <div className="betaItem">
+                    <strong>Keep conversations moving</strong>
+                    <p className="muted" style={{ marginTop: 8 }}>
+                      Follow up fast when an employer shortlists or hires you so the job stays warm.
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="card">
+                <h3>What belongs here</h3>
+                <div className="stack" style={{ marginTop: 12 }}>
+                  <div className="betaItem">
+                    <strong>Work proof</strong>
+                    <p className="muted" style={{ marginTop: 8 }}>Finished projects, before-and-afters, certs, and jobsite updates.</p>
+                  </div>
+                  <div className="betaItem">
+                    <strong>Trade knowledge</strong>
+                    <p className="muted" style={{ marginTop: 8 }}>Quick lessons, equipment tips, code reminders, and how-to clips.</p>
+                  </div>
+                  <div className="betaItem">
+                    <strong>Availability</strong>
+                    <p className="muted" style={{ marginTop: 8 }}>Open-to-work updates, hiring wins, and local crew needs.</p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="card">
               <h3>Snapshot</h3>
@@ -1171,17 +1261,40 @@ export function App() {
               </div>
             </div>
 
-            <div className="card">
-              <h3>What is real now</h3>
-              <div className="pillRow" style={{ marginTop: 12 }}>
-                <span className="pill">Real posts</span>
-                <span className="pill">Real authors</span>
-                <span className="pill">Real DB storage</span>
+            {user?.userTag === "employee" ? (
+              <div className="card">
+                <h3>Hiring readiness</h3>
+                <div className="stack" style={{ marginTop: 12 }}>
+                  <div className="headerRow">
+                    <span className="muted">Trade</span>
+                    <strong>{user.tradeType?.trim() || "Missing"}</strong>
+                  </div>
+                  <div className="headerRow">
+                    <span className="muted">Bio</span>
+                    <strong>{user.bio?.trim() ? "Added" : "Missing"}</strong>
+                  </div>
+                  <div className="headerRow">
+                    <span className="muted">Availability</span>
+                    <strong>{user.openToWork ? "On" : "Off"}</strong>
+                  </div>
+                </div>
+                <p className="muted" style={{ marginTop: 12 }}>
+                  Employers respond faster when your trade, work status, and bio all feel complete.
+                </p>
               </div>
-              <p className="muted" style={{ marginTop: 12 }}>
-                This page now reads from the LaborForce database. No demo posts are injected when the feed is empty.
-              </p>
-            </div>
+            ) : (
+              <div className="card">
+                <h3>What is real now</h3>
+                <div className="pillRow" style={{ marginTop: 12 }}>
+                  <span className="pill">Real posts</span>
+                  <span className="pill">Real authors</span>
+                  <span className="pill">Real DB storage</span>
+                </div>
+                <p className="muted" style={{ marginTop: 12 }}>
+                  This page now reads from the LaborForce database. No demo posts are injected when the feed is empty.
+                </p>
+              </div>
+            )}
 
             <div className="card">
               <h3>Fast links</h3>
@@ -1818,7 +1931,7 @@ export function App() {
 
       {activeView === "profile" && (
         <section style={{ marginTop: 24 }} className="profileLayout">
-          <div className="card">
+          <div className={user?.userTag === "employee" ? "profileHeroCard" : "card"}>
             <h2>Profile</h2>
             {!user ? (
               <div className="stack" style={{ marginTop: 12 }}>
@@ -1829,10 +1942,74 @@ export function App() {
               </div>
             ) : (
               <>
+                {user.userTag === "employee" && (
+                  <>
+                    <div className="profileBanner" />
+                    <div className="profileHeroTop">
+                      <div className="profileAvatar">
+                        {user.profilePhotoUrl ? (
+                          <img alt={user.fullName} src={user.profilePhotoUrl} className="profileAvatarImage" />
+                        ) : (
+                          buildInitials(user.fullName || user.email)
+                        )}
+                      </div>
+                      <div className="stack" style={{ gap: 10 }}>
+                        <div>
+                          <h3>{user.fullName || "Your worker profile"}</h3>
+                          <div className="profileHandle">
+                            @{(user.fullName || user.email).toLowerCase().replaceAll(" ", ".")}
+                          </div>
+                        </div>
+                        <p className="profileHeadline">{buildWorkerHeadline(user)}</p>
+                        <div className="profileMiniBadges">
+                          <span className="profileMiniBadge">{user.openToWork ? "Open to work" : "Profile in progress"}</span>
+                          <span className="profileMiniBadge">{user.tradeType?.trim() || "Trade missing"}</span>
+                          <span className="profileMiniBadge">{user.verificationStatus}</span>
+                          {user.trustBadge && <span className="profileMiniBadge">{user.trustBadge}</span>}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="profileStats">
+                      <div className="profileStat">
+                        <span className="muted">Experience</span>
+                        <strong>{user.yearsExperience ? `${user.yearsExperience} yrs` : "Add it"}</strong>
+                      </div>
+                      <div className="profileStat">
+                        <span className="muted">Rate</span>
+                        <strong>{user.hourlyRate ? `${formatMoney(user.hourlyRate)}/hr` : "Set rate"}</strong>
+                      </div>
+                      <div className="profileStat">
+                        <span className="muted">Reviews</span>
+                        <strong>{user.ratingCount > 0 ? `${user.ratingAverage.toFixed(1)} (${user.ratingCount})` : "No reviews yet"}</strong>
+                      </div>
+                      <div className="profileStat">
+                        <span className="muted">Profile progress</span>
+                        <strong>
+                          {completedChecklistCount}/{profileChecklist.length}
+                        </strong>
+                      </div>
+                    </div>
+                    <div className="profileSectionLabel">What employers see first</div>
+                    <div className="profileFeatureGrid">
+                      {workerStrengths.map((item) => (
+                        <div key={item.label} className="profileFeatureCard">
+                          <span className="muted">{item.label}</span>
+                          <strong>{item.value}</strong>
+                          <p className="muted">{item.hint}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="profileSectionLabel">Bio preview</div>
+                    <p className="profileBio">
+                      {user.bio?.trim() || "Add a short bio that tells employers what kind of jobs you want and what you do best."}
+                    </p>
+                  </>
+                )}
                 <div className="pillRow" style={{ marginTop: 12 }}>
                   <span className="pill">{user.userTag}</span>
                   <span className="pill">{user.verificationStatus}</span>
                   {user.isBusinessVerified && <span className="pill">Business verified</span>}
+                  {user.userTag === "employee" && <span className="pill">{user.openToWork ? "Available now" : "Not open to work"}</span>}
                 </div>
                 <form className="stack" style={{ marginTop: 18 }} onSubmit={handleSaveProfile}>
                   <label className="field">
@@ -1925,8 +2102,12 @@ export function App() {
                   ? "Create an account first."
                   : user.userTag === "employer" && !user.isBusinessVerified
                     ? "Finish your business profile, then complete verification so you can post jobs."
-                    : user.userTag === "employee" && !user.openToWork
-                      ? "Turn on open to work so employers can discover you faster."
+                    : user.userTag === "employee" && !user.tradeType?.trim()
+                      ? "Add your trade so employers immediately understand what kind of work you do."
+                      : user.userTag === "employee" && !user.openToWork
+                        ? "Turn on open to work so employers can discover you faster."
+                        : user.userTag === "employee" && !user.bio?.trim()
+                          ? "Add a short bio so employers know what jobs you want and why they should message you."
                       : "Your profile is ready enough to move into jobs, applications, and messaging."}
               </p>
               <div className="pillRow" style={{ marginTop: 12 }}>
