@@ -219,5 +219,28 @@ export interface AlertItem {
   actionLabel?: string | null;
 }
 
+export interface UserReview {
+  id: string;
+  reviewerId: string;
+  reviewedUserId: string;
+  rating: number;
+  reviewText?: string | null;
+  reviewType: string;
+  relatedJobId?: string | null;
+  relatedQcPostId?: string | null;
+  reviewerSubmitted: boolean;
+  reviewedSubmitted: boolean;
+  isVisible: boolean;
+  createdAt: string;
+  reviewer?: {
+    id: string;
+    fullName: string;
+    userTag: UserTag;
+    tradeType?: string | null;
+    businessName?: string | null;
+    trustBadge?: TrustBadge | null;
+  };
+}
+
 export const userTags: UserTag[] = ["employee", "employer", "customer"];
 export const pipelineStages: PipelineStage[] = ["Lead", "Quoted", "Active", "Invoiced", "Completed"];
