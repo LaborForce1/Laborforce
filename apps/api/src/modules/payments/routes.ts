@@ -6,6 +6,7 @@ import { asyncHandler } from "../../utils/asyncHandler.js";
 import { HttpError } from "../../utils/http.js";
 import { usersRepository } from "../users/repository.js";
 import { jobsRepository } from "../jobs/repository.js";
+import { paymentsRepository } from "./repository.js";
 import { stripeClient } from "../../services/stripe.js";
 import { env } from "../../config/env.js";
 
@@ -50,10 +51,16 @@ paymentsRouter.post("/job-deposits/:jobId/checkout", requireAuth, asyncHandler(a
     throw new HttpError(400, "Only draft jobs can start the deposit flow.");
   }
 
+  const deposit = await paymentsRepository.findJobDeposit(jobId, user.id);
+  if (!deposit) {
+    throw new HttpError(404, "Deposit record not found for this job.");
+  }
+
   if (!stripeClient) {
     return res.json({
       mode: "development_simulation",
       jobId,
+      deposit,
       message: "Stripe is not configured locally yet. The app can simulate deposit confirmation for development."
     });
   }
@@ -83,10 +90,13 @@ paymentsRouter.post("/job-deposits/:jobId/checkout", requireAuth, asyncHandler(a
     ]
   });
 
+  await paymentsRepository.markDepositPending(job.id, user.id, session.payment_intent?.toString() ?? session.id);
+
   res.json({
     mode: "stripe_checkout",
     jobId,
-    checkoutUrl: session.url
+    checkoutUrl: session.url,
+    deposit
   });
 }));
 
@@ -111,8 +121,10 @@ paymentsRouter.post("/job-deposits/complete", requireAuth, asyncHandler(async (r
   }
 
   if (job.status !== "draft") {
+    const deposit = await paymentsRepository.findJobDeposit(payload.jobId, user.id);
     return res.json({
       job,
+      deposit,
       paymentMode: "already_published",
       message: "This job has already been published."
     });
@@ -120,8 +132,10 @@ paymentsRouter.post("/job-deposits/complete", requireAuth, asyncHandler(async (r
 
   if (!stripeClient) {
     const publishedJob = await jobsRepository.publishDraft(payload.jobId);
+    const deposit = await paymentsRepository.findJobDeposit(payload.jobId, user.id);
     return res.json({
       job: publishedJob,
+      deposit,
       paymentMode: "development_simulation",
       message: "Draft published with a local Stripe fallback. Add STRIPE_SECRET_KEY to use real checkout."
     });
@@ -145,25 +159,77 @@ paymentsRouter.post("/job-deposits/complete", requireAuth, asyncHandler(async (r
       ? session.payment_intent
       : session.id;
 
-  const publishedJob = await jobsRepository.publishDraft(payload.jobId, paymentReference);
+  const publishedDeposit = await paymentsRepository.publishPaidDeposit(payload.jobId, user.id, paymentReference);
+  if (!publishedDeposit) {
+    throw new HttpError(404, "Deposit record not found for this job.");
+  }
+
+  const publishedJob = await jobsRepository.findById(payload.jobId);
+  if (!publishedJob) {
+    throw new HttpError(404, "Published job could not be reloaded.");
+  }
 
   res.json({
     job: publishedJob,
+    deposit: publishedDeposit,
     paymentMode: "stripe_checkout",
     message: "Deposit received and job published."
   });
 }));
 
-paymentsRouter.post("/webhooks/stripe", (req, res) => {
+paymentsRouter.get("/job-deposits/:jobId/status", requireAuth, asyncHandler(async (req: AuthedRequest, res) => {
+  const { jobId } = z.object({
+    jobId: z.string().uuid()
+  }).parse(req.params);
+
+  const user = await usersRepository.findById(req.userId ?? "");
+  if (!user) {
+    throw new HttpError(404, "User not found.");
+  }
+
+  const deposit = await paymentsRepository.findJobDeposit(jobId, user.id);
+  if (!deposit) {
+    throw new HttpError(404, "Deposit record not found for this job.");
+  }
+
+  res.json({
+    deposit,
+    stripeReady: integrations.stripe.ready
+  });
+}));
+
+paymentsRouter.post("/webhooks/stripe", asyncHandler(async (req, res) => {
+  const payload = z.object({
+    type: z.string(),
+    data: z.object({
+      object: z.object({
+        id: z.string().optional(),
+        payment_intent: z.string().optional().nullable(),
+        metadata: z.record(z.string(), z.string()).optional()
+      })
+    })
+  }).passthrough().parse(req.body);
+
+  const jobId = payload.data.object.metadata?.jobId;
+  const paymentReference = payload.data.object.payment_intent ?? payload.data.object.id;
+
+  if (jobId && paymentReference) {
+    if (payload.type === "checkout.session.completed" || payload.type === "payment_intent.succeeded") {
+      await paymentsRepository.syncStripeWebhookPayment(jobId, paymentReference, "held");
+    }
+
+    if (payload.type === "payment_intent.payment_failed") {
+      await paymentsRepository.syncStripeWebhookPayment(jobId, paymentReference, "pending");
+    }
+
+    if (payload.type === "charge.refunded") {
+      await paymentsRepository.syncStripeWebhookPayment(jobId, paymentReference, "refunded");
+    }
+  }
+
   res.json({
     received: true,
-    eventTypes: [
-      "payment_intent.succeeded",
-      "payment_intent.payment_failed",
-      "customer.subscription.created",
-      "customer.subscription.deleted",
-      "charge.refunded"
-    ],
-    payloadPreview: req.body
+    syncedJobId: jobId ?? null,
+    eventType: payload.type
   });
-});
+}));
