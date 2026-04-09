@@ -1,57 +1,36 @@
-import type { Message, MessageConversation } from "@laborforce/shared";
-import { query } from "../../db/query.js";
+import type { Message, MessageConversation, TrustBadge, UserTag, VerificationStatus } from "@laborforce/shared";
+import { prisma } from "../../db/prisma.js";
 
-interface MessageRow {
+const messageSelect = {
+  id: true,
+  senderId: true,
+  recipientId: true,
+  conversationId: true,
+  messageText: true,
+  attachmentUrl: true,
+  isRead: true,
+  sentAt: true
+} as const;
+
+function mapMessage(row: {
   id: string;
-  sender_id: string;
-  recipient_id: string;
-  conversation_id: string;
-  message_text: string;
-  attachment_url: string | null;
-  is_read: boolean;
-  sent_at: Date;
-}
-
-interface ConversationRow extends MessageRow {
-  participant_id: string;
-  participant_full_name: string;
-  participant_user_tag: MessageConversation["participant"]["userTag"];
-  participant_trade_type: string | null;
-  participant_business_name: string | null;
-  participant_is_verified: boolean;
-  participant_verification_status: MessageConversation["participant"]["verificationStatus"];
-  participant_trust_badge: MessageConversation["participant"]["trustBadge"] | null;
-  unread_count: string;
-}
-
-function mapMessage(row: MessageRow): Message {
+  senderId: string;
+  recipientId: string;
+  conversationId: string;
+  messageText: string;
+  attachmentUrl: string | null;
+  isRead: boolean;
+  sentAt: Date;
+}): Message {
   return {
     id: row.id,
-    senderId: row.sender_id,
-    recipientId: row.recipient_id,
-    conversationId: row.conversation_id,
-    messageText: row.message_text,
-    attachmentUrl: row.attachment_url,
-    isRead: row.is_read,
-    sentAt: row.sent_at.toISOString()
-  };
-}
-
-function mapConversation(row: ConversationRow): MessageConversation {
-  return {
-    conversationId: row.conversation_id,
-    participant: {
-      id: row.participant_id,
-      fullName: row.participant_full_name,
-      userTag: row.participant_user_tag,
-      tradeType: row.participant_trade_type,
-      businessName: row.participant_business_name,
-      isVerified: row.participant_is_verified,
-      verificationStatus: row.participant_verification_status,
-      trustBadge: row.participant_trust_badge
-    },
-    latestMessage: mapMessage(row),
-    unreadCount: Number(row.unread_count)
+    senderId: row.senderId,
+    recipientId: row.recipientId,
+    conversationId: row.conversationId,
+    messageText: row.messageText,
+    attachmentUrl: row.attachmentUrl,
+    isRead: row.isRead,
+    sentAt: row.sentAt.toISOString()
   };
 }
 
@@ -61,116 +40,119 @@ export function buildConversationId(a: string, b: string) {
 
 export const messagesRepository = {
   async listConversations(userId: string) {
-    const result = await query<ConversationRow>(
-      `
-        WITH ranked_messages AS (
-          SELECT
-            messages.*,
-            ROW_NUMBER() OVER (PARTITION BY messages.conversation_id ORDER BY messages.sent_at DESC) AS row_num
-          FROM messages
-          WHERE messages.sender_id = $1 OR messages.recipient_id = $1
-        )
-        SELECT
-          ranked_messages.id,
-          ranked_messages.sender_id,
-          ranked_messages.recipient_id,
-          ranked_messages.conversation_id,
-          ranked_messages.message_text,
-          ranked_messages.attachment_url,
-          ranked_messages.is_read,
-          ranked_messages.sent_at,
-          participant.id AS participant_id,
-          participant.full_name AS participant_full_name,
-          participant.user_tag AS participant_user_tag,
-          participant.trade_type AS participant_trade_type,
-          participant.business_name AS participant_business_name,
-          participant.is_verified AS participant_is_verified,
-          participant.verification_status AS participant_verification_status,
-          participant.trust_badge AS participant_trust_badge,
-          (
-            SELECT COUNT(*)
-            FROM messages unread
-            WHERE unread.conversation_id = ranked_messages.conversation_id
-              AND unread.recipient_id = $1
-              AND unread.is_read = FALSE
-          ) AS unread_count
-        FROM ranked_messages
-        INNER JOIN users participant ON participant.id =
-          CASE
-            WHEN ranked_messages.sender_id = $1 THEN ranked_messages.recipient_id
-            ELSE ranked_messages.sender_id
-          END
-        WHERE ranked_messages.row_num = 1
-        ORDER BY ranked_messages.sent_at DESC
-      `,
-      [userId]
-    );
+    const latestMessages = await prisma.message.findMany({
+      where: {
+        OR: [{ senderId: userId }, { recipientId: userId }]
+      },
+      orderBy: [{ sentAt: "desc" }],
+      select: {
+        ...messageSelect,
+        sender: {
+          select: {
+            id: true,
+            fullName: true,
+            userTag: true,
+            tradeType: true,
+            businessName: true,
+            isVerified: true,
+            verificationStatus: true,
+            trustBadge: true
+          }
+        },
+        recipient: {
+          select: {
+            id: true,
+            fullName: true,
+            userTag: true,
+            tradeType: true,
+            businessName: true,
+            isVerified: true,
+            verificationStatus: true,
+            trustBadge: true
+          }
+        }
+      }
+    });
 
-    return result.rows.map(mapConversation);
+    const seenConversationIds = new Set<string>();
+    const conversations: MessageConversation[] = [];
+
+    for (const row of latestMessages) {
+      if (seenConversationIds.has(row.conversationId)) {
+        continue;
+      }
+
+      seenConversationIds.add(row.conversationId);
+
+      const participant = row.senderId === userId ? row.recipient : row.sender;
+      const unreadCount = await prisma.message.count({
+        where: {
+          conversationId: row.conversationId,
+          recipientId: userId,
+          isRead: false
+        }
+      });
+
+      conversations.push({
+        conversationId: row.conversationId,
+        participant: {
+          id: participant.id,
+          fullName: participant.fullName,
+          userTag: participant.userTag as UserTag,
+          tradeType: participant.tradeType,
+          businessName: participant.businessName,
+          isVerified: participant.isVerified,
+          verificationStatus: participant.verificationStatus as VerificationStatus,
+          trustBadge: participant.trustBadge as TrustBadge | null
+        },
+        latestMessage: mapMessage(row),
+        unreadCount
+      });
+    }
+
+    return conversations;
   },
 
   async listThread(conversationId: string, userId: string) {
-    const result = await query<MessageRow>(
-      `
-        SELECT
-          id,
-          sender_id,
-          recipient_id,
-          conversation_id,
-          message_text,
-          attachment_url,
-          is_read,
-          sent_at
-        FROM messages
-        WHERE conversation_id = $1
-          AND (sender_id = $2 OR recipient_id = $2)
-        ORDER BY sent_at ASC
-      `,
-      [conversationId, userId]
-    );
+    const rows = await prisma.message.findMany({
+      where: {
+        conversationId,
+        OR: [{ senderId: userId }, { recipientId: userId }]
+      },
+      orderBy: { sentAt: "asc" },
+      select: messageSelect
+    });
 
-    return result.rows.map(mapMessage);
+    return rows.map(mapMessage);
   },
 
   async markConversationRead(conversationId: string, userId: string) {
-    await query(
-      `
-        UPDATE messages
-        SET is_read = TRUE
-        WHERE conversation_id = $1
-          AND recipient_id = $2
-          AND is_read = FALSE
-      `,
-      [conversationId, userId]
-    );
+    await prisma.message.updateMany({
+      where: {
+        conversationId,
+        recipientId: userId,
+        isRead: false
+      },
+      data: {
+        isRead: true
+      }
+    });
   },
 
   async create(senderId: string, recipientId: string, messageText: string, attachmentUrl?: string | null) {
     const conversationId = buildConversationId(senderId, recipientId);
 
-    const result = await query<MessageRow>(
-      `
-        INSERT INTO messages (
-          sender_id,
-          recipient_id,
-          conversation_id,
-          message_text,
-          attachment_url
-        )
-        VALUES ($1, $2, $3, $4, $5)
-        RETURNING
-          id,
-          sender_id,
-          recipient_id,
-          conversation_id,
-          message_text,
-          attachment_url,
-          is_read,
-          sent_at
-      `,
-      [senderId, recipientId, conversationId, messageText, attachmentUrl ?? null]
-    );
+    const row = await prisma.message.create({
+      data: {
+        senderId,
+        recipientId,
+        conversationId,
+        messageText,
+        attachmentUrl: attachmentUrl ?? null
+      },
+      select: messageSelect
+    });
 
-    return mapMessage(result.rows[0]);
+    return mapMessage(row);
   }
 };

@@ -1,273 +1,224 @@
-import type { ApplicationStatus, EmployerApplicationView, JobApplication } from "@laborforce/shared";
-import { query } from "../../db/query.js";
+import type { ApplicationStatus, EmployerApplicationView, JobApplication, TrustBadge, VerificationStatus } from "@laborforce/shared";
+import { Prisma } from "@prisma/client";
+import { prisma } from "../../db/prisma.js";
 
 type ApplicantJobSummary = NonNullable<JobApplication["job"]>;
 type ApplicantEmployerSummary = NonNullable<JobApplication["employer"]>;
 
-interface ApplicationRow {
-  id: string;
-  applicant_id: string;
-  job_listing_id: string;
-  status: ApplicationStatus;
-  message: string | null;
-  applied_at: Date;
-  employer_viewed: boolean;
-  job_title: string;
-  trade_category: string;
-  county_location: string | null;
-  job_status: ApplicantJobSummary["status"];
-  hourly_rate_min: string;
-  hourly_rate_max: string;
-  employer_id: string;
-  employer_full_name: string;
-  employer_business_name: string | null;
-  employer_verification_status: ApplicantEmployerSummary["verificationStatus"];
+const applicantApplicationSelect = {
+  id: true,
+  applicantId: true,
+  jobListingId: true,
+  status: true,
+  message: true,
+  appliedAt: true,
+  employerViewed: true,
+  jobListing: {
+    select: {
+      id: true,
+      jobTitle: true,
+      tradeCategory: true,
+      countyLocation: true,
+      locationZip: true,
+      status: true,
+      hourlyRateMin: true,
+      hourlyRateMax: true,
+      employer: {
+        select: {
+          id: true,
+          fullName: true,
+          businessName: true,
+          verificationStatus: true
+        }
+      }
+    }
+  }
+} satisfies Prisma.ApplicationSelect;
+
+const employerApplicationSelect = {
+  id: true,
+  status: true,
+  message: true,
+  appliedAt: true,
+  employerViewed: true,
+  jobListing: {
+    select: {
+      id: true,
+      jobTitle: true,
+      countyLocation: true,
+      locationZip: true,
+      status: true
+    }
+  },
+  applicant: {
+    select: {
+      id: true,
+      fullName: true,
+      tradeType: true,
+      ratingAverage: true,
+      ratingCount: true,
+      trustBadge: true,
+      verificationStatus: true
+    }
+  }
+} satisfies Prisma.ApplicationSelect;
+
+type ApplicantApplicationRecord = Prisma.ApplicationGetPayload<{ select: typeof applicantApplicationSelect }>;
+type EmployerApplicationRecord = Prisma.ApplicationGetPayload<{ select: typeof employerApplicationSelect }>;
+
+function toNumber(value: Prisma.Decimal | null | undefined): number {
+  return value == null ? 0 : Number(value);
 }
 
-interface EmployerApplicationRow {
-  id: string;
-  status: ApplicationStatus;
-  message: string | null;
-  applied_at: Date;
-  employer_viewed: boolean;
-  job_id: string;
-  job_title: string;
-  county_location: string | null;
-  job_status: EmployerApplicationView["job"]["status"];
-  applicant_id: string;
-  applicant_full_name: string;
-  applicant_trade_type: string | null;
-  applicant_rating_average: string;
-  applicant_rating_count: number;
-  applicant_trust_badge: EmployerApplicationView["applicant"]["trustBadge"] | null;
-  applicant_verification_status: EmployerApplicationView["applicant"]["verificationStatus"];
-}
-
-function mapApplication(row: ApplicationRow): JobApplication {
+function mapApplication(row: ApplicantApplicationRecord): JobApplication {
   return {
     id: row.id,
-    applicantId: row.applicant_id,
-    jobListingId: row.job_listing_id,
-    status: row.status,
+    applicantId: row.applicantId,
+    jobListingId: row.jobListingId,
+    status: row.status as ApplicationStatus,
     message: row.message,
-    appliedAt: row.applied_at.toISOString(),
-    employerViewed: row.employer_viewed,
+    appliedAt: row.appliedAt.toISOString(),
+    employerViewed: row.employerViewed,
     job: {
-      id: row.job_listing_id,
-      jobTitle: row.job_title,
-      tradeCategory: row.trade_category,
-      countyLocation: row.county_location ?? "County not set",
-      status: row.job_status,
-      hourlyRateMin: Number(row.hourly_rate_min),
-      hourlyRateMax: Number(row.hourly_rate_max)
+      id: row.jobListing.id,
+      jobTitle: row.jobListing.jobTitle,
+      tradeCategory: row.jobListing.tradeCategory,
+      countyLocation: row.jobListing.countyLocation ?? row.jobListing.locationZip ?? "County not set",
+      status: row.jobListing.status as ApplicantJobSummary["status"],
+      hourlyRateMin: toNumber(row.jobListing.hourlyRateMin),
+      hourlyRateMax: toNumber(row.jobListing.hourlyRateMax)
     },
     employer: {
-      id: row.employer_id,
-      fullName: row.employer_full_name,
-      businessName: row.employer_business_name,
-      verificationStatus: row.employer_verification_status
+      id: row.jobListing.employer.id,
+      fullName: row.jobListing.employer.fullName,
+      businessName: row.jobListing.employer.businessName,
+      verificationStatus: row.jobListing.employer.verificationStatus as ApplicantEmployerSummary["verificationStatus"]
     }
   };
 }
 
-function mapEmployerApplication(row: EmployerApplicationRow): EmployerApplicationView {
+function mapEmployerApplication(row: EmployerApplicationRecord): EmployerApplicationView {
   return {
     id: row.id,
-    status: row.status,
+    status: row.status as ApplicationStatus,
     message: row.message,
-    appliedAt: row.applied_at.toISOString(),
-    employerViewed: row.employer_viewed,
+    appliedAt: row.appliedAt.toISOString(),
+    employerViewed: row.employerViewed,
     job: {
-      id: row.job_id,
-      jobTitle: row.job_title,
-      countyLocation: row.county_location ?? "County not set",
-      status: row.job_status
+      id: row.jobListing.id,
+      jobTitle: row.jobListing.jobTitle,
+      countyLocation: row.jobListing.countyLocation ?? row.jobListing.locationZip ?? "County not set",
+      status: row.jobListing.status as EmployerApplicationView["job"]["status"]
     },
     applicant: {
-      id: row.applicant_id,
-      fullName: row.applicant_full_name,
-      tradeType: row.applicant_trade_type,
-      ratingAverage: Number(row.applicant_rating_average),
-      ratingCount: row.applicant_rating_count,
-      trustBadge: row.applicant_trust_badge,
-      verificationStatus: row.applicant_verification_status
+      id: row.applicant.id,
+      fullName: row.applicant.fullName,
+      tradeType: row.applicant.tradeType,
+      ratingAverage: Number(row.applicant.ratingAverage),
+      ratingCount: row.applicant.ratingCount,
+      trustBadge: row.applicant.trustBadge as TrustBadge | null,
+      verificationStatus: row.applicant.verificationStatus as VerificationStatus
     }
   };
 }
 
 export const applicationsRepository = {
   async listByApplicant(applicantId: string) {
-    const result = await query<ApplicationRow>(
-      `
-        SELECT
-          applications.id,
-          applications.applicant_id,
-          applications.job_listing_id,
-          applications.status,
-          applications.message,
-          applications.applied_at,
-          applications.employer_viewed,
-          job_listings.job_title,
-          job_listings.trade_category,
-          COALESCE(job_listings.county_location, job_listings.location_zip) AS county_location,
-          job_listings.status AS job_status,
-          job_listings.hourly_rate_min,
-          job_listings.hourly_rate_max,
-          employer.id AS employer_id,
-          employer.full_name AS employer_full_name,
-          employer.business_name AS employer_business_name,
-          employer.verification_status AS employer_verification_status
-        FROM applications
-        INNER JOIN job_listings ON job_listings.id = applications.job_listing_id
-        INNER JOIN users employer ON employer.id = job_listings.employer_id
-        WHERE applicant_id = $1
-        ORDER BY applied_at DESC
-      `,
-      [applicantId]
-    );
+    const rows = await prisma.application.findMany({
+      where: { applicantId },
+      orderBy: { appliedAt: "desc" },
+      select: applicantApplicationSelect
+    });
 
-    return result.rows.map(mapApplication);
+    return rows.map(mapApplication);
   },
 
   async listForEmployer(employerId: string) {
-    const result = await query<EmployerApplicationRow>(
-      `
-        SELECT
-          applications.id,
-          applications.status,
-          applications.message,
-          applications.applied_at,
-          applications.employer_viewed,
-          job_listings.id AS job_id,
-          job_listings.job_title,
-          COALESCE(job_listings.county_location, job_listings.location_zip) AS county_location,
-          job_listings.status AS job_status,
-          users.id AS applicant_id,
-          users.full_name AS applicant_full_name,
-          users.trade_type AS applicant_trade_type,
-          users.rating_average AS applicant_rating_average,
-          users.rating_count AS applicant_rating_count,
-          users.trust_badge AS applicant_trust_badge,
-          users.verification_status AS applicant_verification_status
-        FROM applications
-        INNER JOIN job_listings ON job_listings.id = applications.job_listing_id
-        INNER JOIN users ON users.id = applications.applicant_id
-        WHERE job_listings.employer_id = $1
-        ORDER BY applications.applied_at DESC
-      `,
-      [employerId]
-    );
+    const rows = await prisma.application.findMany({
+      where: {
+        jobListing: {
+          employerId
+        }
+      },
+      orderBy: { appliedAt: "desc" },
+      select: employerApplicationSelect
+    });
 
-    return result.rows.map(mapEmployerApplication);
+    return rows.map(mapEmployerApplication);
   },
 
-  async updateStatusForEmployer(
-    applicationId: string,
-    employerId: string,
-    status: ApplicationStatus
-  ) {
-    const result = await query<EmployerApplicationRow>(
-      `
-        UPDATE applications
-        SET
-          status = $3,
-          employer_viewed = true,
-          employer_response_at = NOW()
-        FROM job_listings, users
-        WHERE
-          applications.id = $1
-          AND job_listings.id = applications.job_listing_id
-          AND job_listings.employer_id = $2
-          AND users.id = applications.applicant_id
-        RETURNING
-          applications.id,
-          applications.status,
-          applications.message,
-          applications.applied_at,
-          applications.employer_viewed,
-          job_listings.id AS job_id,
-          job_listings.job_title,
-          COALESCE(job_listings.county_location, job_listings.location_zip) AS county_location,
-          job_listings.status AS job_status,
-          users.id AS applicant_id,
-          users.full_name AS applicant_full_name,
-          users.trade_type AS applicant_trade_type,
-          users.rating_average AS applicant_rating_average,
-          users.rating_count AS applicant_rating_count,
-          users.trust_badge AS applicant_trust_badge,
-          users.verification_status AS applicant_verification_status
-      `,
-      [applicationId, employerId, status]
-    );
+  async updateStatusForEmployer(applicationId: string, employerId: string, status: ApplicationStatus) {
+    const existing = await prisma.application.findFirst({
+      where: {
+        id: applicationId,
+        jobListing: {
+          employerId
+        }
+      },
+      select: { id: true }
+    });
 
-    const row = result.rows[0];
-    return row ? mapEmployerApplication(row) : null;
+    if (!existing) {
+      return null;
+    }
+
+    const row = await prisma.application.update({
+      where: { id: applicationId },
+      data: {
+        status,
+        employerViewed: true,
+        employerResponseAt: new Date()
+      },
+      select: employerApplicationSelect
+    });
+
+    return mapEmployerApplication(row);
   },
 
   async findByApplicantAndJob(applicantId: string, jobListingId: string) {
-    const result = await query<ApplicationRow>(
-      `
-        SELECT
-          applications.id,
-          applications.applicant_id,
-          applications.job_listing_id,
-          applications.status,
-          applications.message,
-          applications.applied_at,
-          applications.employer_viewed,
-          job_listings.job_title,
-          job_listings.trade_category,
-          COALESCE(job_listings.county_location, job_listings.location_zip) AS county_location,
-          job_listings.status AS job_status,
-          job_listings.hourly_rate_min,
-          job_listings.hourly_rate_max,
-          employer.id AS employer_id,
-          employer.full_name AS employer_full_name,
-          employer.business_name AS employer_business_name,
-          employer.verification_status AS employer_verification_status
-        FROM applications
-        INNER JOIN job_listings ON job_listings.id = applications.job_listing_id
-        INNER JOIN users employer ON employer.id = job_listings.employer_id
-        WHERE applicant_id = $1 AND job_listing_id = $2
-        LIMIT 1
-      `,
-      [applicantId, jobListingId]
-    );
+    const row = await prisma.application.findFirst({
+      where: {
+        applicantId,
+        jobListingId
+      },
+      select: applicantApplicationSelect
+    });
 
-    const row = result.rows[0];
     return row ? mapApplication(row) : null;
   },
 
   async create(applicantId: string, jobListingId: string, message?: string) {
-    const result = await query<{ id: string }>(
-      `
-        INSERT INTO applications (
-          applicant_id,
-          job_listing_id,
-          message
-        )
-        VALUES ($1, $2, $3)
-        RETURNING
-          id
-      `,
-      [applicantId, jobListingId, message ?? null]
-    );
+    const application = await prisma.$transaction(async (tx) => {
+      const created = await tx.application.create({
+        data: {
+          applicantId,
+          jobListingId,
+          message: message ?? null
+        },
+        select: { id: true }
+      });
 
-    await query(
-      `
-        UPDATE job_listings
-        SET applications_count = applications_count + 1
-        WHERE id = $1
-      `,
-      [jobListingId]
-    );
+      await tx.jobListing.update({
+        where: { id: jobListingId },
+        data: {
+          applicationsCount: {
+            increment: 1
+          }
+        }
+      });
 
-    const createdApplication = await this.findByApplicantAndJob(applicantId, jobListingId);
+      return created;
+    });
+
+    const createdApplication = await prisma.application.findUnique({
+      where: { id: application.id },
+      select: applicantApplicationSelect
+    });
 
     if (!createdApplication) {
-      throw new Error(`Application ${result.rows[0]?.id ?? ""} was created but could not be reloaded.`);
+      throw new Error(`Application ${application.id} was created but could not be reloaded.`);
     }
 
-    return createdApplication;
+    return mapApplication(createdApplication);
   }
 };

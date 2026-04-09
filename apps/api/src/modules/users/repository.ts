@@ -1,32 +1,6 @@
-import type { User, UserTag, VerificationStatus } from "@laborforce/shared";
-import { query } from "../../db/query.js";
-
-interface UserRow {
-  id: string;
-  email: string;
-  password_hash: string;
-  full_name: string;
-  phone: string;
-  zip_code: string;
-  user_tag: UserTag;
-  trade_type: string | null;
-  is_verified: boolean;
-  is_premium: boolean;
-  verification_status: VerificationStatus;
-  profile_photo_url: string | null;
-  bio: string | null;
-  years_experience: number | null;
-  hourly_rate: string | null;
-  open_to_work: boolean;
-  rating_average: string;
-  rating_count: number;
-  trust_badge: User["trustBadge"] | null;
-  union_status: string | null;
-  latitude: string | null;
-  longitude: string | null;
-  is_business_verified: boolean;
-  business_name: string | null;
-}
+import type { TrustBadge, User, UserTag, VerificationStatus } from "@laborforce/shared";
+import { Prisma } from "@prisma/client";
+import { prisma } from "../../db/prisma.js";
 
 export interface CreateUserInput {
   email: string;
@@ -55,244 +29,171 @@ export interface CompleteBusinessVerificationInput {
   businessName?: string | null;
 }
 
-function toNullableNumber(value: string | null): number | null {
-  return value === null ? null : Number(value);
+const userSelect = {
+  id: true,
+  email: true,
+  fullName: true,
+  phone: true,
+  zipCode: true,
+  userTag: true,
+  tradeType: true,
+  isVerified: true,
+  isPremium: true,
+  verificationStatus: true,
+  profilePhotoUrl: true,
+  bio: true,
+  yearsExperience: true,
+  hourlyRate: true,
+  openToWork: true,
+  ratingAverage: true,
+  ratingCount: true,
+  trustBadge: true,
+  unionStatus: true,
+  latitude: true,
+  longitude: true,
+  isBusinessVerified: true,
+  businessName: true
+} satisfies Prisma.UserSelect;
+
+const userWithPasswordSelect = {
+  ...userSelect,
+  passwordHash: true
+} satisfies Prisma.UserSelect;
+
+type PrismaUser = Prisma.UserGetPayload<{ select: typeof userSelect }>;
+type PrismaUserWithPassword = Prisma.UserGetPayload<{ select: typeof userWithPasswordSelect }>;
+
+function toNullableNumber(value: Prisma.Decimal | null | undefined): number | null {
+  return value == null ? null : Number(value);
 }
 
-export function mapUser(row: UserRow): User {
+export function mapUser(row: PrismaUser): User {
   return {
     id: row.id,
     email: row.email,
-    fullName: row.full_name,
+    fullName: row.fullName,
     phone: row.phone,
-    zipCode: row.zip_code,
-    userTag: row.user_tag,
-    tradeType: row.trade_type,
-    isVerified: row.is_verified,
-    isPremium: row.is_premium,
-    verificationStatus: row.verification_status,
-    profilePhotoUrl: row.profile_photo_url,
+    zipCode: row.zipCode,
+    userTag: row.userTag as UserTag,
+    tradeType: row.tradeType,
+    isVerified: row.isVerified,
+    isPremium: row.isPremium,
+    verificationStatus: row.verificationStatus as VerificationStatus,
+    profilePhotoUrl: row.profilePhotoUrl,
     bio: row.bio,
-    yearsExperience: row.years_experience,
-    hourlyRate: toNullableNumber(row.hourly_rate),
-    openToWork: row.open_to_work,
-    ratingAverage: Number(row.rating_average),
-    ratingCount: row.rating_count,
-    trustBadge: row.trust_badge,
-    unionStatus: row.union_status,
+    yearsExperience: row.yearsExperience,
+    hourlyRate: toNullableNumber(row.hourlyRate),
+    openToWork: row.openToWork,
+    ratingAverage: Number(row.ratingAverage),
+    ratingCount: row.ratingCount,
+    trustBadge: row.trustBadge as TrustBadge | null,
+    unionStatus: row.unionStatus,
     latitude: toNullableNumber(row.latitude),
     longitude: toNullableNumber(row.longitude),
-    isBusinessVerified: row.is_business_verified,
-    businessName: row.business_name
+    isBusinessVerified: row.isBusinessVerified,
+    businessName: row.businessName
   };
 }
 
-const baseSelect = `
-  SELECT
-    id,
-    email,
-    password_hash,
-    full_name,
-    phone,
-    zip_code,
-    user_tag,
-    trade_type,
-    is_verified,
-    is_premium,
-    verification_status,
-    profile_photo_url,
-    bio,
-    years_experience,
-    hourly_rate,
-    open_to_work,
-    rating_average,
-    rating_count,
-    trust_badge,
-    union_status,
-    latitude,
-    longitude,
-    is_business_verified,
-    business_name
-  FROM users
-`;
-
 export const usersRepository = {
   async create(input: CreateUserInput) {
-    const result = await query<UserRow>(
-      `
-        INSERT INTO users (
-          email,
-          password_hash,
-          full_name,
-          phone,
-          zip_code,
-          user_tag,
-          trade_type,
-          business_name
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        RETURNING
-          id,
-          email,
-          password_hash,
-          full_name,
-          phone,
-          zip_code,
-          user_tag,
-          trade_type,
-          is_verified,
-          is_premium,
-          verification_status,
-          profile_photo_url,
-          bio,
-          years_experience,
-          hourly_rate,
-          open_to_work,
-          rating_average,
-          rating_count,
-          trust_badge,
-          union_status,
-          latitude,
-          longitude,
-          is_business_verified,
-          business_name
-      `,
-      [
-        input.email.toLowerCase(),
-        input.passwordHash,
-        input.fullName,
-        input.phone,
-        input.zipCode,
-        input.userTag,
-        input.tradeType ?? null,
-        input.businessName ?? null
-      ]
-    );
+    const row = await prisma.user.create({
+      data: {
+        email: input.email.toLowerCase(),
+        passwordHash: input.passwordHash,
+        fullName: input.fullName,
+        phone: input.phone,
+        zipCode: input.zipCode,
+        userTag: input.userTag,
+        tradeType: input.tradeType ?? null,
+        businessName: input.businessName ?? null
+      },
+      select: userWithPasswordSelect
+    });
 
     return {
-      user: mapUser(result.rows[0]),
-      passwordHash: result.rows[0].password_hash
+      user: mapUser(row),
+      passwordHash: row.passwordHash
     };
   },
 
   async findByEmail(email: string) {
-    const result = await query<UserRow>(`${baseSelect} WHERE email = $1 LIMIT 1`, [email.toLowerCase()]);
-    const row = result.rows[0];
-    return row ? { user: mapUser(row), passwordHash: row.password_hash } : null;
+    const row = await prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
+      select: userWithPasswordSelect
+    });
+
+    return row
+      ? {
+          user: mapUser(row),
+          passwordHash: row.passwordHash
+        }
+      : null;
   },
 
   async findById(id: string) {
-    const result = await query<UserRow>(`${baseSelect} WHERE id = $1 LIMIT 1`, [id]);
-    const row = result.rows[0];
+    const row = await prisma.user.findUnique({
+      where: { id },
+      select: userSelect
+    });
+
     return row ? mapUser(row) : null;
   },
 
   async list() {
-    const result = await query<UserRow>(`${baseSelect} ORDER BY created_at DESC LIMIT 100`);
-    return result.rows.map(mapUser);
+    const rows = await prisma.user.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 100,
+      select: userSelect
+    });
+
+    return rows.map(mapUser);
   },
 
   async updateProfile(id: string, input: UpdateProfileInput) {
-    const result = await query<UserRow>(
-      `
-        UPDATE users
-        SET
-          full_name = $2,
-          trade_type = $3,
-          business_name = $4,
-          bio = $5,
-          years_experience = $6,
-          hourly_rate = $7,
-          union_status = $8,
-          open_to_work = $9,
-          profile_photo_url = $10,
-          updated_at = NOW()
-        WHERE id = $1
-        RETURNING
-          id,
-          email,
-          password_hash,
-          full_name,
-          phone,
-          zip_code,
-          user_tag,
-          trade_type,
-          is_verified,
-          is_premium,
-          verification_status,
-          profile_photo_url,
-          bio,
-          years_experience,
-          hourly_rate,
-          open_to_work,
-          rating_average,
-          rating_count,
-          trust_badge,
-          union_status,
-          latitude,
-          longitude,
-          is_business_verified,
-          business_name
-      `,
-      [
-        id,
-        input.fullName,
-        input.tradeType ?? null,
-        input.businessName ?? null,
-        input.bio ?? null,
-        input.yearsExperience ?? null,
-        input.hourlyRate ?? null,
-        input.unionStatus ?? null,
-        input.openToWork,
-        input.profilePhotoUrl ?? null
-      ]
-    );
+    const row = await prisma.user.update({
+      where: { id },
+      data: {
+        fullName: input.fullName,
+        tradeType: input.tradeType ?? null,
+        businessName: input.businessName ?? null,
+        bio: input.bio ?? null,
+        yearsExperience: input.yearsExperience ?? null,
+        hourlyRate: input.hourlyRate ?? null,
+        unionStatus: input.unionStatus ?? null,
+        openToWork: input.openToWork,
+        profilePhotoUrl: input.profilePhotoUrl ?? null
+      },
+      select: userSelect
+    }).catch((error: unknown) => {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+        return null;
+      }
 
-    const row = result.rows[0];
+      throw error;
+    });
+
     return row ? mapUser(row) : null;
   },
 
   async completeBusinessVerification(id: string, input: CompleteBusinessVerificationInput = {}) {
-    const result = await query<UserRow>(
-      `
-        UPDATE users
-        SET
-          business_name = COALESCE(NULLIF($2, ''), business_name),
-          is_business_verified = TRUE,
-          is_verified = TRUE,
-          verification_status = 'verified',
-          updated_at = NOW()
-        WHERE id = $1
-        RETURNING
-          id,
-          email,
-          password_hash,
-          full_name,
-          phone,
-          zip_code,
-          user_tag,
-          trade_type,
-          is_verified,
-          is_premium,
-          verification_status,
-          profile_photo_url,
-          bio,
-          years_experience,
-          hourly_rate,
-          open_to_work,
-          rating_average,
-          rating_count,
-          trust_badge,
-          union_status,
-          latitude,
-          longitude,
-          is_business_verified,
-          business_name
-      `,
-      [id, input.businessName ?? null]
-    );
+    const row = await prisma.user.update({
+      where: { id },
+      data: {
+        businessName: input.businessName?.trim() || undefined,
+        isBusinessVerified: true,
+        isVerified: true,
+        verificationStatus: "verified"
+      },
+      select: userSelect
+    }).catch((error: unknown) => {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+        return null;
+      }
 
-    const row = result.rows[0];
+      throw error;
+    });
+
     return row ? mapUser(row) : null;
   }
 };

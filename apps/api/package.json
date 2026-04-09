@@ -9,10 +9,13 @@
     "build": "tsc -p tsconfig.json",
     "lint": "tsc -p tsconfig.json --noEmit",
     "db:init": "tsx src/scripts/dbInit.ts",
-    "db:seed": "tsx src/scripts/seed.ts"
+    "db:seed": "tsx src/scripts/seed.ts",
+    "db:prisma:generate": "prisma generate --schema ./prisma/schema.prisma",
+    "db:prisma:validate": "prisma validate --schema ./prisma/schema.prisma"
   },
   "dependencies": {
     "@laborforce/shared": "0.1.0",
+    "@prisma/client": "^7.7.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
@@ -20,6 +23,7 @@
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.12.0",
+    "prisma": "^7.7.0",
     "stripe": "^18.1.1",
     "tsx": "^4.19.2",
     "zod": "^3.23.8"

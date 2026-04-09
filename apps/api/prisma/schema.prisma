@@ -1,0 +1,242 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                   String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                String          @unique
+  passwordHash         String          @map("password_hash")
+  fullName             String          @map("full_name")
+  phone                String
+  zipCode              String          @map("zip_code")
+  userTag              String          @map("user_tag")
+  tradeType            String?         @map("trade_type")
+  isVerified           Boolean         @default(false) @map("is_verified")
+  isPremium            Boolean         @default(false) @map("is_premium")
+  verificationStatus   String          @default("pending") @map("verification_status")
+  personaInquiryId     String?         @map("persona_inquiry_id")
+  selfieMatchPassed    Boolean         @default(false) @map("selfie_match_passed")
+  profilePhotoUrl      String?         @map("profile_photo_url")
+  bio                  String?
+  yearsExperience      Int?            @map("years_experience")
+  hourlyRate           Decimal?        @map("hourly_rate") @db.Decimal(10, 2)
+  openToWork           Boolean         @default(false) @map("open_to_work")
+  ratingAverage        Decimal         @default(0) @map("rating_average") @db.Decimal(3, 2)
+  ratingCount          Int             @default(0) @map("rating_count")
+  trustBadge           String?         @map("trust_badge")
+  stripeCustomerId     String?         @map("stripe_customer_id")
+  stripeSubscriptionId String?         @map("stripe_subscription_id")
+  unionStatus          String?         @map("union_status")
+  latitude             Decimal?        @db.Decimal(9, 6)
+  longitude            Decimal?        @db.Decimal(9, 6)
+  isBusinessVerified   Boolean         @default(false) @map("is_business_verified")
+  businessName         String?         @map("business_name")
+  businessLicenseUrl   String?         @map("business_license_url")
+  einNumber            String?         @map("ein_number")
+  createdAt            DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime        @default(now()) @map("updated_at") @db.Timestamptz(6)
+  employerJobs         JobListing[]    @relation("EmployerJobs")
+  applications         Application[]   @relation("ApplicantApplications")
+  quickCashPosts       QuickCashPost[] @relation("CustomerQuickCashPosts")
+  assignedQuickCash    QuickCashPost[] @relation("AssignedQuickCashPosts")
+  workerBids           Bid[]           @relation("WorkerBids")
+  writtenReviews       Review[]        @relation("ReviewerReviews")
+  receivedReviews      Review[]        @relation("ReviewedUserReviews")
+  certifications       Certification[] @relation("OwnerCertifications")
+  sentMessages         Message[]       @relation("SentMessages")
+  receivedMessages     Message[]       @relation("ReceivedMessages")
+  socialPosts          SocialPost[]    @relation("AuthorSocialPosts")
+  crmContacts          CrmContact[]    @relation("OwnerCrmContacts")
+
+  @@index([userTag, isVerified], map: "idx_users_tag_verified")
+  @@map("users")
+}
+
+model JobListing {
+  id                    String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  employerId            String        @map("employer_id") @db.Uuid
+  jobTitle              String        @map("job_title")
+  tradeCategory         String        @map("trade_category")
+  description           String
+  hourlyRateMin         Decimal       @map("hourly_rate_min") @db.Decimal(10, 2)
+  hourlyRateMax         Decimal       @map("hourly_rate_max") @db.Decimal(10, 2)
+  jobType               String        @map("job_type")
+  benefits              String?
+  countyLocation        String?       @map("county_location")
+  locationZip           String        @map("location_zip")
+  latitude              Decimal       @db.Decimal(9, 6)
+  longitude             Decimal       @db.Decimal(9, 6)
+  status                String        @default("draft")
+  depositAmount         Decimal       @default(20.00) @map("deposit_amount") @db.Decimal(10, 2)
+  stripePaymentIntentId String?       @map("stripe_payment_intent_id")
+  depositStatus         String        @default("pending") @map("deposit_status")
+  applicationsCount     Int           @default(0) @map("applications_count")
+  viewsCount            Int           @default(0) @map("views_count")
+  isSurge               Boolean       @default(false) @map("is_surge")
+  unionRequired         Boolean       @default(false) @map("union_required")
+  certificationsRequired Json         @default("[]") @map("certifications_required")
+  postedAt              DateTime      @default(now()) @map("posted_at") @db.Timestamptz(6)
+  expiresAt             DateTime      @default(dbgenerated("(now() + '30 days'::interval)")) @map("expires_at") @db.Timestamptz(6)
+  employer              User          @relation("EmployerJobs", fields: [employerId], references: [id], onDelete: Cascade)
+  applications          Application[]
+  reviews               Review[]      @relation("RelatedJobReviews")
+
+  @@index([status, postedAt(sort: Desc)], map: "idx_jobs_status_posted")
+  @@map("job_listings")
+}
+
+model Application {
+  id                 String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  applicantId        String     @map("applicant_id") @db.Uuid
+  jobListingId       String     @map("job_listing_id") @db.Uuid
+  status             String     @default("submitted")
+  message            String?
+  appliedAt          DateTime   @default(now()) @map("applied_at") @db.Timestamptz(6)
+  employerViewed     Boolean    @default(false) @map("employer_viewed")
+  employerResponseAt DateTime?  @map("employer_response_at") @db.Timestamptz(6)
+  daysWithoutResponse Int       @default(0) @map("days_without_response")
+  applicant          User       @relation("ApplicantApplications", fields: [applicantId], references: [id], onDelete: Cascade)
+  jobListing         JobListing @relation(fields: [jobListingId], references: [id], onDelete: Cascade)
+
+  @@map("applications")
+}
+
+model QuickCashPost {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  customerId          String    @map("customer_id") @db.Uuid
+  taskTitle           String    @map("task_title")
+  description         String
+  tradeCategory       String    @map("trade_category")
+  budgetMin           Decimal   @map("budget_min") @db.Decimal(10, 2)
+  budgetMax           Decimal   @map("budget_max") @db.Decimal(10, 2)
+  locationZip         String    @map("location_zip")
+  latitude            Decimal   @db.Decimal(9, 6)
+  longitude           Decimal   @db.Decimal(9, 6)
+  status              String    @default("open")
+  isSurge             Boolean   @default(false) @map("is_surge")
+  estimatedHours      Decimal?  @map("estimated_hours") @db.Decimal(10, 2)
+  escrowAmount        Decimal?  @map("escrow_amount") @db.Decimal(10, 2)
+  stripePaymentIntentId String? @map("stripe_payment_intent_id")
+  assignedWorkerId    String?   @map("assigned_worker_id") @db.Uuid
+  postedAt            DateTime  @default(now()) @map("posted_at") @db.Timestamptz(6)
+  completedAt         DateTime? @map("completed_at") @db.Timestamptz(6)
+  customer            User      @relation("CustomerQuickCashPosts", fields: [customerId], references: [id], onDelete: Cascade)
+  assignedWorker      User?     @relation("AssignedQuickCashPosts", fields: [assignedWorkerId], references: [id], onDelete: SetNull)
+  bids                Bid[]
+  reviews             Review[]  @relation("RelatedQuickCashPostReviews")
+
+  @@index([status, postedAt(sort: Desc)], map: "idx_quick_cash_status_posted")
+  @@map("quick_cash_posts")
+}
+
+model Bid {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workerId        String        @map("worker_id") @db.Uuid
+  quickCashPostId String        @map("quick_cash_post_id") @db.Uuid
+  bidAmount       Decimal       @map("bid_amount") @db.Decimal(10, 2)
+  message         String?
+  availability    String?
+  status          String        @default("submitted")
+  submittedAt     DateTime      @default(now()) @map("submitted_at") @db.Timestamptz(6)
+  worker          User          @relation("WorkerBids", fields: [workerId], references: [id], onDelete: Cascade)
+  quickCashPost   QuickCashPost @relation(fields: [quickCashPostId], references: [id], onDelete: Cascade)
+
+  @@map("bids")
+}
+
+model Review {
+  id                String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  reviewerId        String         @map("reviewer_id") @db.Uuid
+  reviewedUserId    String         @map("reviewed_user_id") @db.Uuid
+  rating            Int
+  reviewText        String?        @map("review_text")
+  reviewType        String         @map("review_type")
+  relatedJobId      String?        @map("related_job_id") @db.Uuid
+  relatedQcPostId   String?        @map("related_qc_post_id") @db.Uuid
+  reviewerSubmitted Boolean        @default(true) @map("reviewer_submitted")
+  reviewedSubmitted Boolean        @default(false) @map("reviewed_submitted")
+  isVisible         Boolean        @default(false) @map("is_visible")
+  createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  reviewer          User           @relation("ReviewerReviews", fields: [reviewerId], references: [id], onDelete: Cascade)
+  reviewedUser      User           @relation("ReviewedUserReviews", fields: [reviewedUserId], references: [id], onDelete: Cascade)
+  relatedJob        JobListing?    @relation("RelatedJobReviews", fields: [relatedJobId], references: [id], onDelete: SetNull)
+  relatedQuickCash  QuickCashPost? @relation("RelatedQuickCashPostReviews", fields: [relatedQcPostId], references: [id], onDelete: SetNull)
+
+  @@map("reviews")
+}
+
+model Certification {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerId            String    @map("owner_id") @db.Uuid
+  certName           String    @map("cert_name")
+  issuingBody        String?   @map("issuing_body")
+  documentUrl        String    @map("document_url")
+  verificationStatus String    @default("pending") @map("verification_status")
+  personaDocId       String?   @map("persona_doc_id")
+  expiresAt          DateTime? @map("expires_at") @db.Timestamptz(6)
+  uploadedAt         DateTime  @default(now()) @map("uploaded_at") @db.Timestamptz(6)
+  owner              User      @relation("OwnerCertifications", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@map("certifications")
+}
+
+model Message {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  senderId       String   @map("sender_id") @db.Uuid
+  recipientId    String   @map("recipient_id") @db.Uuid
+  conversationId String   @map("conversation_id")
+  messageText    String   @map("message_text")
+  attachmentUrl  String?  @map("attachment_url")
+  isRead         Boolean  @default(false) @map("is_read")
+  sentAt         DateTime @default(now()) @map("sent_at") @db.Timestamptz(6)
+  sender         User     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  recipient      User     @relation("ReceivedMessages", fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@map("messages")
+}
+
+model SocialPost {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  authorId        String   @map("author_id") @db.Uuid
+  postText        String   @map("post_text")
+  photoUrls       Json     @default("[]") @map("photo_urls")
+  videoUrl        String?  @map("video_url")
+  isProofWall     Boolean  @default(false) @map("is_proof_wall")
+  tradeTag        String   @map("trade_tag")
+  locationDisplay String?  @map("location_display")
+  latitude        Decimal? @db.Decimal(9, 6)
+  longitude       Decimal? @db.Decimal(9, 6)
+  respectsCount   Int      @default(0) @map("respects_count")
+  impressedCount  Int      @default(0) @map("impressed_count")
+  helpfulCount    Int      @default(0) @map("helpful_count")
+  commentsCount   Int      @default(0) @map("comments_count")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  author          User     @relation("AuthorSocialPosts", fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt(sort: Desc)], map: "idx_social_posts_created")
+  @@map("social_posts")
+}
+
+model CrmContact {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerId        String    @map("owner_id") @db.Uuid
+  contactName    String    @map("contact_name")
+  contactPhone   String?   @map("contact_phone")
+  contactEmail   String?   @map("contact_email")
+  notes          String?
+  pipelineStage  String    @default("Lead") @map("pipeline_stage")
+  projectValue   Decimal?  @map("project_value") @db.Decimal(12, 2)
+  lastContactAt  DateTime? @map("last_contact_at") @db.Timestamptz(6)
+  followUpAt     DateTime? @map("follow_up_at") @db.Timestamptz(6)
+  followUpSent   Boolean   @default(false) @map("follow_up_sent")
+  tags           Json      @default("[]")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  owner          User      @relation("OwnerCrmContacts", fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId, pipelineStage], map: "idx_crm_owner_stage")
+  @@map("crm_contacts")
+}
