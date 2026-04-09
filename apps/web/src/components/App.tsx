@@ -138,6 +138,15 @@ function formatDate(value: string) {
   return new Date(value).toLocaleDateString();
 }
 
+function buildInitials(name: string) {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
 function buildProfileChecklist(user: User | null) {
   if (!user) {
     return [];
@@ -213,6 +222,72 @@ function buildWorkerStrengths(user: User | null) {
   ];
 }
 
+function buildWorkerApplicationNextStep(application: JobApplication, user: User | null) {
+  if (user?.userTag !== "employee") {
+    return null;
+  }
+
+  if (application.status === "submitted") {
+    return "Your application is in. Keep your intro strong and watch for employer activity.";
+  }
+
+  if (application.status === "viewed") {
+    return "The employer has seen your application. Stay ready to reply fast if they move you forward.";
+  }
+
+  if (application.status === "shortlisted") {
+    if (user.isVerified && application.employer?.verificationStatus === "verified") {
+      return "You have real momentum here. Follow up in chat now while the job is warm.";
+    }
+
+    return "You were shortlisted. Verification still needs to catch up before messaging unlocks.";
+  }
+
+  if (application.status === "hired") {
+    if (user.isVerified && application.employer?.verificationStatus === "verified") {
+      return "You were marked hired. Confirm start details and next steps in chat.";
+    }
+
+    return "You were marked hired. Watch this application and stay ready while messaging unlocks.";
+  }
+
+  if (application.status === "rejected") {
+    return "This one closed out. Keep applying to other good-fit jobs.";
+  }
+
+  return null;
+}
+
+function getApplicationSortRank(status: JobApplication["status"]) {
+  switch (status) {
+    case "hired":
+      return 0;
+    case "shortlisted":
+      return 1;
+    case "viewed":
+      return 2;
+    case "submitted":
+      return 3;
+    case "rejected":
+      return 4;
+    default:
+      return 5;
+  }
+}
+
+function buildWorkerBlockers(user: User | null) {
+  if (!user || user.userTag !== "employee") {
+    return [];
+  }
+
+  return [
+    !user.tradeType?.trim() ? "Add your trade" : null,
+    !user.bio?.trim() ? "Write your bio" : null,
+    !user.openToWork ? "Turn on open to work" : null,
+    !user.isVerified ? "Finish account verification" : null
+  ].filter(Boolean) as string[];
+}
+
 export function App() {
   const [activeView, setActiveView] = useState<View>("overview");
   const [authMode, setAuthMode] = useState<AuthMode>("login");
@@ -278,8 +353,22 @@ export function App() {
 
   const needsBusinessVerification = user?.userTag === "employer" && !user.isBusinessVerified;
   const workerActiveApplications = applications.filter((application) => application.status === "submitted" || application.status === "viewed");
+  const sortedWorkerApplications = useMemo(
+    () =>
+      [...applications].sort((left, right) => {
+        const statusRank = getApplicationSortRank(left.status) - getApplicationSortRank(right.status);
+        if (statusRank !== 0) {
+          return statusRank;
+        }
+
+        return new Date(right.appliedAt).getTime() - new Date(left.appliedAt).getTime();
+      }),
+    [applications]
+  );
   const workerPriorityApplication =
-    applications.find((application) => application.status === "shortlisted" || application.status === "hired") ?? applications[0] ?? null;
+    sortedWorkerApplications.find((application) => application.status === "shortlisted" || application.status === "hired") ??
+    sortedWorkerApplications[0] ??
+    null;
   const employerPriorityApplication =
     incomingApplications.find((application) => application.status === "submitted" || application.status === "viewed") ??
     incomingApplications[0] ??
@@ -289,6 +378,15 @@ export function App() {
   const messagingLocked = Boolean(user && !user.isVerified);
   const employerPriorityApplicantVerified = employerPriorityApplication?.applicant.verificationStatus === "verified";
   const workerPriorityEmployerVerified = workerPriorityApplication?.employer?.verificationStatus === "verified";
+  const workerApplicationStatusCounts = useMemo(
+    () => ({
+      submitted: applications.filter((application) => application.status === "submitted").length,
+      viewed: applications.filter((application) => application.status === "viewed").length,
+      shortlisted: applications.filter((application) => application.status === "shortlisted").length,
+      hired: applications.filter((application) => application.status === "hired").length
+    }),
+    [applications]
+  );
   const availableTradeFilters = useMemo(
     () => Array.from(new Set(jobs.map((job) => job.tradeCategory))).sort((a, b) => a.localeCompare(b)),
     [jobs]
@@ -322,6 +420,7 @@ export function App() {
             ? "Add a short bio so employers know what you do best."
             : "Your worker profile is ready to support real hiring conversations."
       : null;
+  const workerBlockers = useMemo(() => buildWorkerBlockers(user), [user]);
 
   useEffect(() => {
     const raw = window.localStorage.getItem(AUTH_STORAGE_KEY);
@@ -515,7 +614,13 @@ export function App() {
       setAuthState(response.credentials);
       setUser(response.user);
       window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(response.credentials));
-      setSuccessMessage(authMode === "signup" ? "Account created." : "Signed in successfully.");
+      if (authMode === "signup" && response.user.userTag === "employee") {
+        setSuccessMessage("Account created. Next step: finish your worker profile, turn on open to work, then start applying.");
+      } else if (authMode === "signup" && response.user.userTag === "employer") {
+        setSuccessMessage("Account created. Next step: finish your business profile and complete verification.");
+      } else {
+        setSuccessMessage("Signed in successfully.");
+      }
       setAuthForm(emptyAuthForm);
       setActiveView("profile");
     } catch (error) {
@@ -894,17 +999,28 @@ export function App() {
             </p>
             {workerReadinessSummary && <p className="muted" style={{ marginTop: 8 }}>{workerReadinessSummary}</p>}
             {user.userTag === "employee" && (
-              <div className="pillRow" style={{ marginTop: 12 }}>
-                <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("profile")}>
-                  Finish profile
-                </button>
-                <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("jobs")}>
-                  Browse jobs
-                </button>
-                <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("applications")}>
-                  Open apps
-                </button>
-              </div>
+              <>
+                {workerBlockers.length > 0 && (
+                  <div className="pillRow" style={{ marginTop: 12 }}>
+                    {workerBlockers.map((blocker) => (
+                      <span key={blocker} className="pill">
+                        {blocker}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                <div className="pillRow" style={{ marginTop: 12 }}>
+                  <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("profile")}>
+                    Finish profile
+                  </button>
+                  <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("jobs")}>
+                    Browse jobs
+                  </button>
+                  <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("applications")}>
+                    Open apps
+                  </button>
+                </div>
+              </>
             )}
           </div>
         ) : (
@@ -1013,6 +1129,7 @@ export function App() {
                     </div>
                     <div className="pillRow">
                       <span className="pill">{workerActiveApplications.length} active applications</span>
+                      <span className="pill">{workerApplicationStatusCounts.shortlisted + workerApplicationStatusCounts.hired} priority updates</span>
                       <span className="pill">{conversations.length} chats</span>
                       <span className="pill">{jobs.length} jobs nearby</span>
                     </div>
@@ -1057,6 +1174,9 @@ export function App() {
                     <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("applications")}>
                       Open applications
                     </button>
+                    <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("profile")}>
+                      Update profile
+                    </button>
                   </div>
                   {!workerNeedsFirstApplication && workerPriorityApplication?.employer && (!user?.isVerified || !workerPriorityEmployerVerified) && (
                     <p className="muted" style={{ marginTop: 12 }}>
@@ -1069,7 +1189,7 @@ export function App() {
           </div>
 
           <div className="stack sideRail">
-             {user?.userTag === "employee" ? (
+            {user?.userTag === "employee" ? (
               <div className="card">
                 <h3>Worker next moves</h3>
                 <div className="stack" style={{ marginTop: 12 }}>
@@ -1091,6 +1211,18 @@ export function App() {
                       Follow up fast when an employer shortlists or hires you so the job stays warm.
                     </p>
                   </div>
+                  {workerBlockers.length > 0 && (
+                    <div className="betaItem">
+                      <strong>Current blockers</strong>
+                      <div className="pillRow" style={{ marginTop: 8 }}>
+                        {workerBlockers.map((blocker) => (
+                          <span key={blocker} className="pill">
+                            {blocker}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             ) : (
@@ -1112,10 +1244,6 @@ export function App() {
                 </div>
               </div>
             )}
-
-
-=======
->>>>>>> main
             <div className="card">
               <h3>Snapshot</h3>
               <div className="stack" style={{ marginTop: 12 }}>
@@ -1161,14 +1289,16 @@ export function App() {
               </div>
             ) : (
               <div className="card">
-                <h3>What is real now</h3>
+                <h3>MVP focus</h3>
                 <div className="pillRow" style={{ marginTop: 12 }}>
-                  <span className="pill">Real posts</span>
-                  <span className="pill">Real authors</span>
-                  <span className="pill">Real DB storage</span>
+                  <span className="pill">Auth</span>
+                  <span className="pill">Profiles</span>
+                  <span className="pill">Jobs</span>
+                  <span className="pill">Apps</span>
+                  <span className="pill">Chat</span>
                 </div>
                 <p className="muted" style={{ marginTop: 12 }}>
-                  This page now reads from the LaborForce database. No demo posts are injected when the feed is empty.
+                  Keep the product centered on hiring flow cleanup before production verification, Stripe, or extra features.
                 </p>
               </div>
             )}
@@ -1176,18 +1306,37 @@ export function App() {
             <div className="card">
               <h3>Fast links</h3>
               <div className="pillRow" style={{ marginTop: 12 }}>
-                <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("jobs")}>
-                  Jobs
-                </button>
-                <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("applications")}>
-                  Apps
-                </button>
-                <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("messages")}>
-                  Chat
-                </button>
-                <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("profile")}>
-                  Profile
-                </button>
+                {user?.userTag === "employee" ? (
+                  <>
+                    <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("jobs")}>
+                      Best fit jobs
+                    </button>
+                    <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("applications")}>
+                      My pipeline
+                    </button>
+                    <button className="actionButton ghostButton" type="button" onClick={() => setActiveView(user.isVerified ? "messages" : "profile")}>
+                      {user.isVerified ? "Priority chat" : "Finish profile"}
+                    </button>
+                    <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("profile")}>
+                      Profile
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("jobs")}>
+                      Jobs
+                    </button>
+                    <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("applications")}>
+                      Apps
+                    </button>
+                    <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("messages")}>
+                      Chat
+                    </button>
+                    <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("profile")}>
+                      Profile
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -1257,6 +1406,16 @@ export function App() {
                     </label>
                   )}
                 </div>
+                {selectedTag === "employee" && (
+                  <div className="notice successNotice">
+                    Worker setup goes fastest when you finish your profile, turn on open to work, then apply to the best-fit jobs first.
+                  </div>
+                )}
+                {selectedTag === "employer" && (
+                  <div className="notice successNotice">
+                    Employer setup goes fastest when you finish your business profile first, then complete verification before posting jobs.
+                  </div>
+                )}
               </>
             )}
 
@@ -1273,6 +1432,26 @@ export function App() {
               {isSubmittingAuth ? "Saving..." : authMode === "signup" ? "Create account" : "Sign in"}
             </button>
           </form>
+
+          {authMode === "signup" && selectedTag === "employee" && (
+            <div className="card" style={{ marginTop: 18 }}>
+              <h3>Worker first steps</h3>
+              <div className="stack" style={{ marginTop: 12 }}>
+                <div className="checkItem">
+                  <div className="checkDot pendingDot" />
+                  <div>Finish your profile so employers can quickly understand your trade, experience, and rate.</div>
+                </div>
+                <div className="checkItem">
+                  <div className="checkDot pendingDot" />
+                  <div>Turn on open to work so you show up as available.</div>
+                </div>
+                <div className="checkItem">
+                  <div className="checkDot pendingDot" />
+                  <div>Apply to the strongest-fit jobs first, then use Apps to track movement and follow up.</div>
+                </div>
+              </div>
+            </div>
+          )}
         </section>
       )}
 
@@ -1436,8 +1615,41 @@ export function App() {
                   )}
 
                   {user?.userTag === "employee" && existingApplication && (
-                    <div className="notice successNotice" style={{ marginTop: 14 }}>
-                      Applied on {formatDate(existingApplication.appliedAt)}.
+                    <div className="stack" style={{ marginTop: 14 }}>
+                      <div className="notice successNotice">
+                        Applied on {formatDate(existingApplication.appliedAt)}.
+                      </div>
+                      <div className="pillRow">
+                        <span className="pill">{formatStatus(existingApplication.status)}</span>
+                        <span className="pill">{existingApplication.employerViewed ? "Employer has viewed it" : "Waiting on employer review"}</span>
+                      </div>
+                      {buildWorkerApplicationNextStep(existingApplication, user) && (
+                        <p className="muted">{buildWorkerApplicationNextStep(existingApplication, user)}</p>
+                      )}
+                      <div className="pillRow">
+                        <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("applications")}>
+                          Open application
+                        </button>
+                        {existingApplication.employer && user.isVerified && existingApplication.employer.verificationStatus === "verified" && (
+                          <button
+                            className="actionButton ghostButton"
+                            type="button"
+                            onClick={() =>
+                              openConversation(
+                                existingApplication.employer!.id,
+                                `Hi ${existingApplication.employer!.fullName.split(" ")[0]}, I wanted to follow up on ${job.jobTitle}.`
+                              )
+                            }
+                          >
+                            Message employer
+                          </button>
+                        )}
+                      </div>
+                      {existingApplication.status === "rejected" && (
+                        <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("jobs")}>
+                          Find another job
+                        </button>
+                      )}
                     </div>
                   )}
                 </article>
@@ -1448,6 +1660,20 @@ export function App() {
                 <p className="muted" style={{ marginTop: 12 }}>
                   Try widening your search, clearing the trade filter, or increasing your drive radius.
                 </p>
+                {user?.userTag === "employee" && (
+                  <div className="stack" style={{ marginTop: 12 }}>
+                    <div className="betaItem">
+                      <strong>Improve your match quality</strong>
+                      <p className="muted" style={{ marginTop: 8 }}>
+                        {user.tradeType?.trim()
+                          ? user.openToWork
+                            ? "Your profile is positioned well. Reset filters and keep checking for better-fit jobs."
+                            : "Turn on open to work so your profile is ready when the right jobs appear."
+                          : "Add your trade in Profile so LaborForce can steer you toward better-fit work."}
+                      </p>
+                    </div>
+                  </div>
+                )}
                 <div className="pillRow" style={{ marginTop: 12 }}>
                   <button
                     className="actionButton ghostButton"
@@ -1460,38 +1686,74 @@ export function App() {
                   >
                     Reset filters
                   </button>
+                  {user?.userTag === "employee" && (
+                    <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("profile")}>
+                      Update profile
+                    </button>
+                  )}
                 </div>
               </div>
             )}
           </div>
 
           <div className="stack sideRail">
-            <div className="card">
-              <h3>Employer summary</h3>
-              <div className="pillRow" style={{ marginTop: 12 }}>
-                <span className="pill">{employerDrafts.length} drafts</span>
-                <span className="pill">{employerActiveJobs.length} active</span>
-              </div>
-              <p className="muted" style={{ marginTop: 12 }}>
-                Employers must complete business verification before public job publishing unlocks.
-              </p>
-              {user?.userTag === "employer" && !user.isBusinessVerified && (
-                <>
-                  <p className="muted" style={{ marginTop: 12 }}>
-                    Finish verification, then publish your draft and start reviewing applicants from one place.
-                  </p>
-                  <button
-                    className="actionButton"
-                    style={{ marginTop: 12 }}
-                    type="button"
-                    disabled={isCompletingVerification}
-                    onClick={() => void handleCompleteBusinessVerification()}
-                  >
-                    {isCompletingVerification ? "Verifying..." : "Complete business verification"}
+            {user?.userTag === "employee" ? (
+              <div className="card">
+                <h3>Worker job search</h3>
+                <div className="stack" style={{ marginTop: 12 }}>
+                  <div className="headerRow">
+                    <span className="muted">Open to work</span>
+                    <strong>{user.openToWork ? "On" : "Off"}</strong>
+                  </div>
+                  <div className="headerRow">
+                    <span className="muted">Trade</span>
+                    <strong>{user.tradeType?.trim() || "Missing"}</strong>
+                  </div>
+                  <div className="headerRow">
+                    <span className="muted">Applications</span>
+                    <strong>{applications.length}</strong>
+                  </div>
+                </div>
+                <p className="muted" style={{ marginTop: 12 }}>
+                  Apply to the strongest-fit jobs first, then follow up quickly when an employer views or shortlists you.
+                </p>
+                <div className="pillRow" style={{ marginTop: 12 }}>
+                  <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("profile")}>
+                    Update profile
                   </button>
-                </>
-              )}
-            </div>
+                  <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("applications")}>
+                    Open apps
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="card">
+                <h3>Employer summary</h3>
+                <div className="pillRow" style={{ marginTop: 12 }}>
+                  <span className="pill">{employerDrafts.length} drafts</span>
+                  <span className="pill">{employerActiveJobs.length} active</span>
+                </div>
+                <p className="muted" style={{ marginTop: 12 }}>
+                  Employers must complete business verification before public job publishing unlocks.
+                </p>
+                {user?.userTag === "employer" && !user.isBusinessVerified && (
+                  <>
+                    <p className="muted" style={{ marginTop: 12 }}>
+                      Finish verification, then publish your draft and start reviewing applicants from one place.
+                    </p>
+                    <button
+                      className="actionButton"
+                      style={{ marginTop: 12 }}
+                      type="button"
+                      disabled={isCompletingVerification}
+                      onClick={() => void handleCompleteBusinessVerification()}
+                    >
+                      {isCompletingVerification ? "Verifying..." : "Complete business verification"}
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
 
             {user?.userTag === "employer" && (
               <form className="card stack" onSubmit={handleCreateJob}>
@@ -1563,9 +1825,17 @@ export function App() {
           <div className="stack roomyStack">
             <div className="card">
               <h2>Your applications</h2>
+              {user?.userTag === "employee" && applications.length > 0 && (
+                <div className="pillRow" style={{ marginTop: 12 }}>
+                  <span className="pill">{workerApplicationStatusCounts.submitted} submitted</span>
+                  <span className="pill">{workerApplicationStatusCounts.viewed} viewed</span>
+                  <span className="pill">{workerApplicationStatusCounts.shortlisted} shortlisted</span>
+                  <span className="pill">{workerApplicationStatusCounts.hired} hired</span>
+                </div>
+              )}
               {applications.length > 0 ? (
                 <div className="stack" style={{ marginTop: 12 }}>
-                  {applications.map((application) => (
+                  {sortedWorkerApplications.map((application) => (
                     <div key={application.id} className="applicationItem">
                       <div className="headerRow">
                         <div>
@@ -1591,6 +1861,21 @@ export function App() {
                         Applied {formatDate(application.appliedAt)}
                       </div>
                       {application.message && <p style={{ marginTop: 8 }}>{application.message}</p>}
+                      {buildWorkerApplicationNextStep(application, user) && (
+                        <p className="muted" style={{ marginTop: 12 }}>
+                          {buildWorkerApplicationNextStep(application, user)}
+                        </p>
+                      )}
+                      {application.status === "shortlisted" && (
+                        <div className="notice successNotice" style={{ marginTop: 12 }}>
+                          You are in a strong spot here. Reply quickly if chat is open.
+                        </div>
+                      )}
+                      {application.status === "hired" && (
+                        <div className="notice successNotice" style={{ marginTop: 12 }}>
+                          This employer has moved forward with you. Confirm details and timing as soon as possible.
+                        </div>
+                      )}
                       {user?.userTag === "employee" && (
                         <div className="pillRow" style={{ marginTop: 12 }}>
                           <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("jobs")}>
@@ -1617,12 +1902,25 @@ export function App() {
                           Messaging unlocks after both sides are verified. Use your application message to introduce yourself for now.
                         </p>
                       )}
+                      {application.status === "rejected" && (
+                        <div className="pillRow" style={{ marginTop: 12 }}>
+                          <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("jobs")}>
+                            Find another job
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
               ) : (
                 <div className="stack" style={{ marginTop: 12 }}>
                   <p className="muted">No applications yet. Browse jobs, send a strong intro, and follow up fast when employers respond.</p>
+                  <div className="betaItem">
+                    <strong>Best next move</strong>
+                    <p className="muted" style={{ marginTop: 8 }}>
+                      Start with jobs that clearly match your trade, then keep your profile current so employers have a reason to reply.
+                    </p>
+                  </div>
                   <div className="pillRow">
                     <button className="actionButton" type="button" onClick={() => setActiveView("jobs")}>
                       Browse jobs
@@ -1637,91 +1935,165 @@ export function App() {
           </div>
 
           <div className="stack" style={{ gridColumn: "span 2" }}>
-            <div className="card">
-              <h2>Employer review queue</h2>
-              {incomingApplications.length > 0 ? (
-                <div className="stack" style={{ marginTop: 12 }}>
-                  {incomingApplications.map((application) => (
-                    <div key={application.id} className="applicationItem">
-                      <div className="headerRow">
-                        <div>
-                          <strong>{application.applicant.fullName}</strong>
-                          <div className="muted">
-                            {application.job.jobTitle} • {application.job.countyLocation}
-                          </div>
-                        </div>
-                        <span className="pill">{formatStatus(application.status)}</span>
-                      </div>
-                      <div className="pillRow" style={{ marginTop: 12 }}>
-                        {application.applicant.tradeType && <span className="pill">{application.applicant.tradeType}</span>}
-                        <span className="pill">{application.applicant.verificationStatus}</span>
-                        <span className="pill">{application.applicant.ratingCount} ratings</span>
-                        <span className="pill">{application.employerViewed ? "Viewed" : "New applicant"}</span>
-                      </div>
-                      {application.message && <p style={{ marginTop: 10 }}>{application.message}</p>}
-                      {application.applicant.verificationStatus === "verified" ? (
-                        <div className="pillRow" style={{ marginTop: 12 }}>
-                          <button className="actionButton ghostButton" type="button" onClick={() => openConversation(application.applicant.id)}>
-                            Message applicant
-                          </button>
-                        </div>
-                      ) : (
-                        <p className="muted" style={{ marginTop: 12 }}>
-                          Messaging unlocks after the worker is verified. You can still review and move the application forward now.
-                        </p>
-                      )}
-                      <div className="pillRow" style={{ marginTop: 12 }}>
-                        {(["viewed", "shortlisted", "rejected", "hired"] as const).map((status) => (
-                          <button
-                            key={status}
-                            className="actionButton ghostButton"
-                            type="button"
-                            disabled={updatingApplicationId === application.id}
-                            onClick={() =>
-                              void handleApplicationStatus(application.id, status, {
-                                recipientId:
-                                  application.applicant.verificationStatus === "verified"
-                                    ? application.applicant.id
-                                    : undefined,
-                                draftMessage:
-                                  application.applicant.verificationStatus === "verified"
-                                    ? status === "shortlisted"
-                                      ? `Hi ${application.applicant.fullName.split(" ")[0]}, I just shortlisted you for ${application.job.jobTitle}. Are you available to chat about next steps?`
-                                      : status === "hired"
-                                        ? `Hi ${application.applicant.fullName.split(" ")[0]}, we’d like to move forward with you for ${application.job.jobTitle}. Let’s confirm details and next steps.`
-                                        : undefined
-                                    : undefined,
-                                postActionNote:
-                                  application.applicant.verificationStatus !== "verified" &&
-                                  (status === "shortlisted" || status === "hired")
-                                    ? "Messaging will unlock after the worker is verified."
-                                    : undefined
-                              })
-                            }
-                          >
-                            {formatStatus(status)}
-                          </button>
-                        ))}
-                      </div>
+            {user?.userTag === "employee" ? (
+              <>
+                <div className="card">
+                  <h2>Worker pipeline guide</h2>
+                  <div className="stack" style={{ marginTop: 12 }}>
+                    <div className="betaItem">
+                      <strong>Submitted</strong>
+                      <p className="muted" style={{ marginTop: 8 }}>
+                        Your application is in. Keep applying to good-fit jobs while you wait for movement.
+                      </p>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="stack" style={{ marginTop: 12 }}>
-                  <p className="muted">No employer-side applications yet. Publish a job and qualified workers will start appearing here.</p>
-                  <div className="pillRow">
-                    <button className="actionButton" type="button" onClick={() => setActiveView("jobs")}>
-                      Open jobs
-                    </button>
-                    {!user?.isBusinessVerified && user?.userTag === "employer" && (
-                      <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("profile")}>
-                        Finish verification
-                      </button>
-                    )}
+                    <div className="betaItem">
+                      <strong>Viewed / shortlisted</strong>
+                      <p className="muted" style={{ marginTop: 8 }}>
+                        These are your warmest leads. Follow up fast when messaging is available.
+                      </p>
+                    </div>
+                    <div className="betaItem">
+                      <strong>Hired</strong>
+                      <p className="muted" style={{ marginTop: 8 }}>
+                        Confirm timing, details, and next steps as quickly as possible.
+                      </p>
+                    </div>
                   </div>
                 </div>
-              )}
-            </div>
+
+                <div className="card">
+                  <h3>Your strongest lead</h3>
+                  {workerPriorityApplication ? (
+                    <div className="stack" style={{ marginTop: 12 }}>
+                      <strong>{workerPriorityApplication.job?.jobTitle ?? "Application"}</strong>
+                      <div className="muted">
+                        {workerPriorityApplication.job?.countyLocation ?? "Location not set"}
+                        {workerPriorityApplication.employer?.fullName ? ` • ${workerPriorityApplication.employer.fullName}` : ""}
+                      </div>
+                      <div className="pillRow">
+                        <span className="pill">{formatStatus(workerPriorityApplication.status)}</span>
+                        <span className="pill">{workerPriorityApplication.employerViewed ? "Employer engaged" : "Waiting on employer"}</span>
+                      </div>
+                      {buildWorkerApplicationNextStep(workerPriorityApplication, user) && (
+                        <p className="muted">{buildWorkerApplicationNextStep(workerPriorityApplication, user)}</p>
+                      )}
+                      <div className="pillRow">
+                        <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("jobs")}>
+                          Browse jobs
+                        </button>
+                        {workerPriorityApplication.employer && user.isVerified && workerPriorityApplication.employer.verificationStatus === "verified" && (
+                          <button
+                            className="actionButton ghostButton"
+                            type="button"
+                            onClick={() =>
+                              openConversation(
+                                workerPriorityApplication.employer!.id,
+                                `Hi ${workerPriorityApplication.employer!.fullName.split(" ")[0]}, I wanted to follow up on ${workerPriorityApplication.job?.jobTitle ?? "my application"}.`
+                              )
+                            }
+                          >
+                            Open chat
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="stack" style={{ marginTop: 12 }}>
+                      <p className="muted">You do not have a lead yet. Start applying to the best-fit jobs first.</p>
+                      <button className="actionButton" type="button" onClick={() => setActiveView("jobs")}>
+                        Find jobs
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="card">
+                <h2>Employer review queue</h2>
+                {incomingApplications.length > 0 ? (
+                  <div className="stack" style={{ marginTop: 12 }}>
+                    {incomingApplications.map((application) => (
+                      <div key={application.id} className="applicationItem">
+                        <div className="headerRow">
+                          <div>
+                            <strong>{application.applicant.fullName}</strong>
+                            <div className="muted">
+                              {application.job.jobTitle} • {application.job.countyLocation}
+                            </div>
+                          </div>
+                          <span className="pill">{formatStatus(application.status)}</span>
+                        </div>
+                        <div className="pillRow" style={{ marginTop: 12 }}>
+                          {application.applicant.tradeType && <span className="pill">{application.applicant.tradeType}</span>}
+                          <span className="pill">{application.applicant.verificationStatus}</span>
+                          <span className="pill">{application.applicant.ratingCount} ratings</span>
+                          <span className="pill">{application.employerViewed ? "Viewed" : "New applicant"}</span>
+                        </div>
+                        {application.message && <p style={{ marginTop: 10 }}>{application.message}</p>}
+                        {application.applicant.verificationStatus === "verified" ? (
+                          <div className="pillRow" style={{ marginTop: 12 }}>
+                            <button className="actionButton ghostButton" type="button" onClick={() => openConversation(application.applicant.id)}>
+                              Message applicant
+                            </button>
+                          </div>
+                        ) : (
+                          <p className="muted" style={{ marginTop: 12 }}>
+                            Messaging unlocks after the worker is verified. You can still review and move the application forward now.
+                          </p>
+                        )}
+                        <div className="pillRow" style={{ marginTop: 12 }}>
+                          {(["viewed", "shortlisted", "rejected", "hired"] as const).map((status) => (
+                            <button
+                              key={status}
+                              className="actionButton ghostButton"
+                              type="button"
+                              disabled={updatingApplicationId === application.id}
+                              onClick={() =>
+                                void handleApplicationStatus(application.id, status, {
+                                  recipientId:
+                                    application.applicant.verificationStatus === "verified"
+                                      ? application.applicant.id
+                                      : undefined,
+                                  draftMessage:
+                                    application.applicant.verificationStatus === "verified"
+                                      ? status === "shortlisted"
+                                        ? `Hi ${application.applicant.fullName.split(" ")[0]}, I just shortlisted you for ${application.job.jobTitle}. Are you available to chat about next steps?`
+                                        : status === "hired"
+                                          ? `Hi ${application.applicant.fullName.split(" ")[0]}, we’d like to move forward with you for ${application.job.jobTitle}. Let’s confirm details and next steps.`
+                                          : undefined
+                                      : undefined,
+                                  postActionNote:
+                                    application.applicant.verificationStatus !== "verified" &&
+                                    (status === "shortlisted" || status === "hired")
+                                      ? "Messaging will unlock after the worker is verified."
+                                      : undefined
+                                })
+                              }
+                            >
+                              {formatStatus(status)}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="stack" style={{ marginTop: 12 }}>
+                    <p className="muted">No employer-side applications yet. Publish a job and qualified workers will start appearing here.</p>
+                    <div className="pillRow">
+                      <button className="actionButton" type="button" onClick={() => setActiveView("jobs")}>
+                        Open jobs
+                      </button>
+                      {!user?.isBusinessVerified && user?.userTag === "employer" && (
+                        <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("profile")}>
+                          Finish verification
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </section>
       )}
@@ -1744,8 +2116,26 @@ export function App() {
               <p className="muted" style={{ marginTop: 12 }}>
                 {user.userTag === "employer"
                   ? "Messaging unlocks after your account is verified. Finish business verification first, then keep hiring moving through jobs and applications."
-                  : "Messaging unlocks after your account is verified. For now, keep the hiring flow moving through jobs and applications."}
+                  : "Messaging unlocks after your account is verified. For now, keep applying, keep your profile strong, and watch Apps for status changes."}
               </p>
+              {user.userTag === "employee" && (
+                <div className="stack" style={{ marginTop: 12 }}>
+                  <div className="betaItem">
+                    <strong>Best thing to do right now</strong>
+                    <p className="muted" style={{ marginTop: 8 }}>
+                      {workerPriorityApplication
+                        ? `Stay close to ${workerPriorityApplication.job?.jobTitle ?? "your strongest application"} and watch Apps for movement.`
+                        : "Finish your profile and apply to the strongest-fit jobs first."}
+                    </p>
+                  </div>
+                  <div className="betaItem">
+                    <strong>What unlocks chat</strong>
+                    <p className="muted" style={{ marginTop: 8 }}>
+                      Your account needs to be verified, and the employer side needs to be verified too.
+                    </p>
+                  </div>
+                </div>
+              )}
               <div className="pillRow" style={{ marginTop: 12 }}>
                 {user.userTag === "employer" && (
                   <button className="actionButton" type="button" onClick={() => setActiveView("profile")}>
@@ -1768,6 +2158,27 @@ export function App() {
                 <div className="card">
                   <h2>Inbox</h2>
                   <p className="muted">Verified users can message each other after connecting through the platform.</p>
+                  {user.userTag === "employee" && workerPriorityApplication?.employer && workerPriorityEmployerVerified && (
+                    <div className="pillRow" style={{ marginTop: 12 }}>
+                      <button
+                        className="actionButton ghostButton"
+                        type="button"
+                        onClick={() =>
+                          openConversation(
+                            workerPriorityApplication.employer!.id,
+                            `Hi ${workerPriorityApplication.employer!.fullName.split(" ")[0]}, I wanted to follow up on ${workerPriorityApplication.job?.jobTitle ?? "my application"}.`
+                          )
+                        }
+                      >
+                        Resume best lead
+                      </button>
+                    </div>
+                  )}
+                  {user.userTag === "employee" && workerPriorityApplication && (
+                    <p className="muted" style={{ marginTop: 12 }}>
+                      Current best lead: {workerPriorityApplication.job?.jobTitle ?? "Application"} with {workerPriorityApplication.employer?.fullName ?? "the employer"}.
+                    </p>
+                  )}
                 </div>
                 {conversations.length > 0 ? (
                   conversations.map((conversation) => (
@@ -1823,6 +2234,12 @@ export function App() {
                           <span className="pill">{selectedConversation ? "Existing thread" : "New thread"}</span>
                         </div>
                       </div>
+                      {user.userTag === "employee" && workerPriorityApplication?.employer?.id === selectedRecipientId && (
+                        <div className="pillRow" style={{ marginTop: 12 }}>
+                          <span className="pill">Priority lead</span>
+                          <span className="pill">{workerPriorityApplication.job?.jobTitle ?? "Application follow-up"}</span>
+                        </div>
+                      )}
                       <p className="muted" style={{ marginTop: 12 }}>
                         {selectedConversation
                           ? "This conversation is already active. Keep replies short, specific, and job-focused."
@@ -1849,6 +2266,11 @@ export function App() {
                       <p className="muted">
                         Keep messages specific to the job, timeline, and next action so the handoff from applications stays clear.
                       </p>
+                      {user.userTag === "employee" && workerPriorityApplication?.employer?.id === selectedRecipientId && (
+                        <div className="notice successNotice">
+                          This is tied to your strongest live lead. Confirm timing, next steps, and job details while the conversation is active.
+                        </div>
+                      )}
                       <textarea rows={3} value={messageText} placeholder="Type your message" onChange={(event) => setMessageText(event.target.value)} />
                       <button className="actionButton" type="button" disabled={isSendingMessage} onClick={() => void handleSendMessage()}>
                         {isSendingMessage ? "Sending..." : selectedConversation ? "Send reply" : "Send message"}
@@ -2036,6 +2458,10 @@ export function App() {
                     ? "Finish your business profile, then complete verification so you can post jobs."
                     : user.userTag === "employee" && !user.isVerified
                       ? "Your profile is ready to apply for jobs. Messaging will unlock after account verification is complete."
+                      : user.userTag === "employee" && !user.tradeType?.trim()
+                        ? "Add your trade so employers instantly understand what kind of work you do."
+                        : user.userTag === "employee" && !user.bio?.trim()
+                          ? "Add a short bio so employers know your strengths and the kind of jobs you want."
                     : user.userTag === "employee" && !user.openToWork
                       ? "Turn on open to work so employers can discover you faster."
                       : "Your profile is ready enough to move into jobs, applications, and messaging."}
