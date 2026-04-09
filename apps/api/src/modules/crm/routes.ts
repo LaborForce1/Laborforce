@@ -6,6 +6,7 @@ import { asyncHandler } from "../../utils/asyncHandler.js";
 import { HttpError } from "../../utils/http.js";
 import { usersRepository } from "../users/repository.js";
 import { crmRepository } from "./repository.js";
+import { enqueueCrmFollowUpReminder } from "../../queues/reminders.js";
 
 export const crmRouter = Router();
 
@@ -59,6 +60,15 @@ crmRouter.post("/", requireAuth, asyncHandler(async (req: AuthedRequest, res) =>
     ...payload
   });
 
+  if (contact.followUpAt) {
+    await enqueueCrmFollowUpReminder({
+      userId: user.id,
+      contactId: contact.id,
+      contactName: contact.contactName,
+      dueAt: contact.followUpAt
+    });
+  }
+
   res.status(201).json({
     contact,
     message: "CRM contact created."
@@ -91,6 +101,15 @@ crmRouter.patch("/:contactId", requireAuth, asyncHandler(async (req: AuthedReque
   const contact = await crmRepository.update(contactId, user.id, payload);
   if (!contact) {
     throw new HttpError(404, "CRM contact not found.");
+  }
+
+  if (contact.followUpAt && !contact.followUpSent) {
+    await enqueueCrmFollowUpReminder({
+      userId: user.id,
+      contactId: contact.id,
+      contactName: contact.contactName,
+      dueAt: contact.followUpAt
+    });
   }
 
   res.json({
