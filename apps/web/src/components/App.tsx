@@ -75,13 +75,11 @@ interface JobFormState {
   jobType: string;
   benefits: string;
   countyLocation: string;
-  locationZip: string;
   certificationsRequired: string;
 }
 
 interface ProfileFormState {
   fullName: string;
-  zipCode: string;
   tradeType: string;
   businessName: string;
   bio: string;
@@ -110,13 +108,11 @@ const emptyJobForm: JobFormState = {
   jobType: "full_time",
   benefits: "",
   countyLocation: "",
-  locationZip: "",
   certificationsRequired: ""
 };
 
 const emptyProfileForm: ProfileFormState = {
   fullName: "",
-  zipCode: "",
   tradeType: "",
   businessName: "",
   bio: "",
@@ -539,7 +535,6 @@ export function App() {
 
     setProfileForm({
       fullName: user.fullName ?? "",
-      zipCode: user.zipCode ?? "",
       tradeType: user.tradeType ?? "",
       businessName: user.businessName ?? "",
       bio: user.bio ?? "",
@@ -707,7 +702,6 @@ export function App() {
         jobType: jobForm.jobType,
         benefits: jobForm.benefits,
         countyLocation: jobForm.countyLocation,
-        locationZip: jobForm.locationZip,
         certificationsRequired: jobForm.certificationsRequired
           .split(",")
           .map((value) => value.trim())
@@ -767,7 +761,6 @@ export function App() {
       jobType: job.jobType,
       benefits: job.benefits ?? "",
       countyLocation: job.countyLocation,
-      locationZip: job.locationZip,
       certificationsRequired: job.certificationsRequired.join(", ")
     });
   }
@@ -909,7 +902,6 @@ export function App() {
         "/users/me",
         {
           fullName: profileForm.fullName,
-          zipCode: profileForm.zipCode,
           tradeType: profileForm.tradeType || null,
           businessName: profileForm.businessName || null,
           bio: profileForm.bio || null,
@@ -922,10 +914,6 @@ export function App() {
       );
 
       setUser(response.user);
-      await loadJobs();
-      if (response.user.userTag === "employer") {
-        await loadEmployerJobs(authState.accessToken);
-      }
       if (response.user.userTag === "employer" && !response.user.isBusinessVerified) {
         setSuccessMessage("Profile updated. Next step: complete business verification so you can publish jobs.");
       } else if (response.user.userTag === "employee") {
@@ -1027,10 +1015,10 @@ export function App() {
       <section className="hero">
         <div className="headerRow">
           <div>
-            <div className="badge">LaborForce</div>
-            <h1 style={{ marginTop: 12 }}>Hire skilled workers and move from application to chat faster.</h1>
+            <div className="badge">LaborForce MVP</div>
+            <h1 style={{ marginTop: 12 }}>Verified hiring for blue-collar work.</h1>
             <p className="muted" style={{ marginTop: 12 }}>
-              LaborForce keeps profiles, jobs, applications, and messaging connected so both sides always know the next step.
+              The priority is the real hiring flow: auth, profile, jobs, applications, and messaging.
             </p>
           </div>
           <div className="pillRow">
@@ -1097,12 +1085,12 @@ export function App() {
           </div>
         ) : (
           <div className="card">
-            <strong>Create an account to start hiring or applying.</strong>
+            <strong>Start by creating an account or logging in.</strong>
             <p className="muted" style={{ marginTop: 8 }}>
-              Choose employer or worker, finish your profile, and LaborForce will guide you into the next real step.
+              Employee and employer flows are wired to the real LaborForce API.
             </p>
             <button className="actionButton" style={{ marginTop: 12 }} type="button" onClick={() => setActiveView("auth")}>
-              Get started
+              Open auth
             </button>
           </div>
         )}
@@ -1115,9 +1103,9 @@ export function App() {
           <div className="stack roomyStack">
             {!user && (
               <div className="card">
-                <h2>Get started</h2>
+                <h2>Start here</h2>
                 <p className="muted" style={{ marginTop: 12 }}>
-                  Create your account, finish your profile, and move into jobs, applications, and messaging without losing your place.
+                  Create an account, finish your profile, then move into jobs, applications, and messaging.
                 </p>
                 <div className="pillRow" style={{ marginTop: 12 }}>
                   <button className="actionButton" type="button" onClick={() => setActiveView("auth")}>
@@ -1363,20 +1351,6 @@ export function App() {
               </div>
             </div>
 
-<<<<<<< HEAD
-            <div className="card">
-              <h3>How LaborForce works</h3>
-              <div className="pillRow" style={{ marginTop: 12 }}>
-                <span className="pill">Create profile</span>
-                <span className="pill">Post or apply</span>
-                <span className="pill">Review updates</span>
-                <span className="pill">Chat</span>
-              </div>
-              <p className="muted" style={{ marginTop: 12 }}>
-                Finish your profile, post or apply to the right jobs, review updates fast, and move into chat when both sides are ready.
-              </p>
-            </div>
-=======
             {user?.userTag === "employee" ? (
               <div className="card">
                 <h3>Hiring readiness</h3>
@@ -1420,10 +1394,9 @@ export function App() {
                 </p>
               </div>
             )}
->>>>>>> origin/main
 
             <div className="card">
-              <h3>Quick access</h3>
+              <h3>Fast links</h3>
               <div className="pillRow" style={{ marginTop: 12 }}>
                 {user?.userTag === "employee" ? (
                   <>
@@ -1464,68 +1437,39 @@ export function App() {
 
       {activeView === "auth" && (
         <section style={{ marginTop: 24 }} className="card">
-          {user ? (
-            <div className="stack">
-              <div className="headerRow">
-                <div>
-                  <h2>Account</h2>
-                  <p className="muted">You’re signed in and ready to keep moving through LaborForce.</p>
-                </div>
-                <button className="actionButton ghostButton" type="button" onClick={signOut}>
-                  Sign out
-                </button>
-              </div>
-
-              <div className="card">
-                <div className="headerRow">
-                  <div>
-                    <strong>{user.fullName}</strong>
-                    <div className="muted">{user.email}</div>
-                  </div>
-                  <div className="pillRow">
-                    <span className="pill">{user.userTag}</span>
-                    <span className="pill">{user.verificationStatus}</span>
-                  </div>
-                </div>
-                <p className="muted" style={{ marginTop: 12 }}>
-                  {user.userTag === "employer"
-                    ? user.isBusinessVerified
-                      ? "Your business profile is verified. You can publish jobs, review applicants, and move into chat."
-                      : "Finish business verification to publish jobs and move hiring forward."
-                    : user.isVerified
-                      ? "Your account is ready for applications and messaging."
-                      : "Your account is ready for jobs and applications. Messaging will unlock after verification is complete."}
-                </p>
-                <div className="pillRow" style={{ marginTop: 12 }}>
-                  <button className="actionButton" type="button" onClick={() => setActiveView("profile")}>
-                    Open profile
-                  </button>
-                  <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("jobs")}>
-                    Open jobs
-                  </button>
-                  <button className="actionButton ghostButton" type="button" onClick={() => setActiveView("applications")}>
-                    Open applications
-                  </button>
-                </div>
-              </div>
+          <div className="headerRow">
+            <div>
+              <h2>{authMode === "signup" ? "Create account" : "Sign in"}</h2>
+              <p className="muted">{authMode === "signup" ? "Start as an employee or employer." : "Use your LaborForce account."}</p>
             </div>
-          ) : (
-            <>
-              <div className="headerRow">
-                <div>
-                  <h2>{authMode === "signup" ? "Create account" : "Sign in"}</h2>
-                  <p className="muted">{authMode === "signup" ? "Start as an employee or employer." : "Use your LaborForce account."}</p>
+            <button
+              className="actionButton ghostButton"
+              type="button"
+              onClick={() => setAuthMode((current) => (current === "login" ? "signup" : "login"))}
+            >
+              {authMode === "login" ? "Need an account?" : "Already have an account?"}
+            </button>
+          </div>
+
+          <form className="stack" style={{ marginTop: 18 }} onSubmit={handleAuthSubmit}>
+            {authMode === "signup" && (
+              <>
+                <div className="feedMiniNav">
+                  <button
+                    className={`miniNavButton ${selectedTag === "employee" ? "miniNavActive" : ""}`}
+                    type="button"
+                    onClick={() => setSelectedTag("employee")}
+                  >
+                    Employee
+                  </button>
+                  <button
+                    className={`miniNavButton ${selectedTag === "employer" ? "miniNavActive" : ""}`}
+                    type="button"
+                    onClick={() => setSelectedTag("employer")}
+                  >
+                    Employer
+                  </button>
                 </div>
-<<<<<<< HEAD
-                <button
-                  className="actionButton ghostButton"
-                  type="button"
-                  onClick={() => setAuthMode((current) => (current === "login" ? "signup" : "login"))}
-                >
-                  {authMode === "login" ? "Need an account?" : "Already have an account?"}
-                </button>
-              </div>
-=======
                 <div className="splitFields">
                   <label className="field">
                     <span>Full name</span>
@@ -1566,74 +1510,16 @@ export function App() {
                 )}
               </>
             )}
->>>>>>> origin/main
 
-              <form className="stack" style={{ marginTop: 18 }} onSubmit={handleAuthSubmit}>
-                {authMode === "signup" && (
-                  <>
-                    <div className="feedMiniNav">
-                      <button
-                        className={`miniNavButton ${selectedTag === "employee" ? "miniNavActive" : ""}`}
-                        type="button"
-                        onClick={() => setSelectedTag("employee")}
-                      >
-                        Employee
-                      </button>
-                      <button
-                        className={`miniNavButton ${selectedTag === "employer" ? "miniNavActive" : ""}`}
-                        type="button"
-                        onClick={() => setSelectedTag("employer")}
-                      >
-                        Employer
-                      </button>
-                    </div>
-                    <div className="splitFields">
-                      <label className="field">
-                        <span>Full name</span>
-                        <input value={authForm.fullName} onChange={(event) => setAuthForm((current) => ({ ...current, fullName: event.target.value }))} required />
-                      </label>
-                      <label className="field">
-                        <span>Phone</span>
-                        <input value={authForm.phone} onChange={(event) => setAuthForm((current) => ({ ...current, phone: event.target.value }))} required />
-                      </label>
-                    </div>
-                    <div className="splitFields">
-                      <label className="field">
-                        <span>ZIP code</span>
-                        <input value={authForm.zipCode} onChange={(event) => setAuthForm((current) => ({ ...current, zipCode: event.target.value }))} required />
-                      </label>
-                      {selectedTag === "employer" && (
-                        <label className="field">
-                          <span>Business name</span>
-                          <input value={authForm.businessName} onChange={(event) => setAuthForm((current) => ({ ...current, businessName: event.target.value }))} required />
-                        </label>
-                      )}
-                      {selectedTag === "employee" && (
-                        <label className="field">
-                          <span>Trade</span>
-                          <input value={authForm.tradeType} onChange={(event) => setAuthForm((current) => ({ ...current, tradeType: event.target.value }))} />
-                        </label>
-                      )}
-                    </div>
-                  </>
-                )}
+            <label className="field">
+              <span>Email</span>
+              <input type="email" value={authForm.email} onChange={(event) => setAuthForm((current) => ({ ...current, email: event.target.value }))} required />
+            </label>
+            <label className="field">
+              <span>Password</span>
+              <input type="password" value={authForm.password} onChange={(event) => setAuthForm((current) => ({ ...current, password: event.target.value }))} required />
+            </label>
 
-<<<<<<< HEAD
-                <label className="field">
-                  <span>Email</span>
-                  <input type="email" value={authForm.email} onChange={(event) => setAuthForm((current) => ({ ...current, email: event.target.value }))} required />
-                </label>
-                <label className="field">
-                  <span>Password</span>
-                  <input type="password" value={authForm.password} onChange={(event) => setAuthForm((current) => ({ ...current, password: event.target.value }))} required />
-                </label>
-
-                <button className="actionButton" disabled={isSubmittingAuth} type="submit">
-                  {isSubmittingAuth ? "Saving..." : authMode === "signup" ? "Create account" : "Sign in"}
-                </button>
-              </form>
-            </>
-=======
             <button className="actionButton" disabled={isSubmittingAuth} type="submit">
               {isSubmittingAuth ? "Saving..." : authMode === "signup" ? "Create account" : "Sign in"}
             </button>
@@ -1677,7 +1563,6 @@ export function App() {
                 </div>
               </div>
             </div>
->>>>>>> origin/main
           )}
         </section>
       )}
@@ -2064,14 +1949,10 @@ export function App() {
                     </select>
                   </label>
                   <label className="field">
-                    <span>ZIP code</span>
-                    <input value={jobForm.locationZip} onChange={(event) => setJobForm((current) => ({ ...current, locationZip: event.target.value }))} required />
+                    <span>County / area</span>
+                    <input value={jobForm.countyLocation} onChange={(event) => setJobForm((current) => ({ ...current, countyLocation: event.target.value }))} required />
                   </label>
                 </div>
-                <label className="field">
-                  <span>County / area</span>
-                  <input value={jobForm.countyLocation} onChange={(event) => setJobForm((current) => ({ ...current, countyLocation: event.target.value }))} required />
-                </label>
                 <label className="field">
                   <span>Benefits</span>
                   <input value={jobForm.benefits} onChange={(event) => setJobForm((current) => ({ ...current, benefits: event.target.value }))} />
@@ -2081,13 +1962,9 @@ export function App() {
                   <input value={jobForm.certificationsRequired} onChange={(event) => setJobForm((current) => ({ ...current, certificationsRequired: event.target.value }))} placeholder="OSHA 10, EPA 608" />
                 </label>
                 <p className="muted">
-<<<<<<< HEAD
-                  ZIP drives the actual map coordinates and distance match. County / area is the label workers see in the listing.
-=======
                   {editingJobId
                     ? "Update the details that affect applicant quality most: title, pay, county, and the description."
                     : "Create the draft first, then review it in My jobs before publishing it live."}
->>>>>>> origin/main
                 </p>
                 <button className="actionButton" disabled={isPostingJob} type="submit">
                   {isPostingJob ? "Saving..." : editingJobId ? "Save changes" : "Create draft job"}
@@ -2755,10 +2632,6 @@ export function App() {
                   <label className="field">
                     <span>Full name</span>
                     <input value={profileForm.fullName} onChange={(event) => setProfileForm((current) => ({ ...current, fullName: event.target.value }))} required />
-                  </label>
-                  <label className="field">
-                    <span>ZIP code</span>
-                    <input value={profileForm.zipCode} onChange={(event) => setProfileForm((current) => ({ ...current, zipCode: event.target.value }))} required />
                   </label>
                   <div className="splitFields">
                     <label className="field">
