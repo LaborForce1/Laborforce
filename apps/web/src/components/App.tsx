@@ -75,11 +75,13 @@ interface JobFormState {
   jobType: string;
   benefits: string;
   countyLocation: string;
+  locationZip: string;
   certificationsRequired: string;
 }
 
 interface ProfileFormState {
   fullName: string;
+  zipCode: string;
   tradeType: string;
   businessName: string;
   bio: string;
@@ -108,11 +110,13 @@ const emptyJobForm: JobFormState = {
   jobType: "full_time",
   benefits: "",
   countyLocation: "",
+  locationZip: "",
   certificationsRequired: ""
 };
 
 const emptyProfileForm: ProfileFormState = {
   fullName: "",
+  zipCode: "",
   tradeType: "",
   businessName: "",
   bio: "",
@@ -336,6 +340,7 @@ export function App() {
 
     setProfileForm({
       fullName: user.fullName ?? "",
+      zipCode: user.zipCode ?? "",
       tradeType: user.tradeType ?? "",
       businessName: user.businessName ?? "",
       bio: user.bio ?? "",
@@ -497,6 +502,7 @@ export function App() {
         jobType: jobForm.jobType,
         benefits: jobForm.benefits,
         countyLocation: jobForm.countyLocation,
+        locationZip: jobForm.locationZip,
         certificationsRequired: jobForm.certificationsRequired
           .split(",")
           .map((value) => value.trim())
@@ -556,6 +562,7 @@ export function App() {
       jobType: job.jobType,
       benefits: job.benefits ?? "",
       countyLocation: job.countyLocation,
+      locationZip: job.locationZip,
       certificationsRequired: job.certificationsRequired.join(", ")
     });
   }
@@ -697,6 +704,7 @@ export function App() {
         "/users/me",
         {
           fullName: profileForm.fullName,
+          zipCode: profileForm.zipCode,
           tradeType: profileForm.tradeType || null,
           businessName: profileForm.businessName || null,
           bio: profileForm.bio || null,
@@ -709,6 +717,10 @@ export function App() {
       );
 
       setUser(response.user);
+      await loadJobs();
+      if (response.user.userTag === "employer") {
+        await loadEmployerJobs(authState.accessToken);
+      }
       if (response.user.userTag === "employer" && !response.user.isBusinessVerified) {
         setSuccessMessage("Profile updated. Next step: complete business verification so you can publish jobs.");
       } else if (response.user.userTag === "employee") {
@@ -1453,10 +1465,14 @@ export function App() {
                     </select>
                   </label>
                   <label className="field">
-                    <span>County / area</span>
-                    <input value={jobForm.countyLocation} onChange={(event) => setJobForm((current) => ({ ...current, countyLocation: event.target.value }))} required />
+                    <span>ZIP code</span>
+                    <input value={jobForm.locationZip} onChange={(event) => setJobForm((current) => ({ ...current, locationZip: event.target.value }))} required />
                   </label>
                 </div>
+                <label className="field">
+                  <span>County / area</span>
+                  <input value={jobForm.countyLocation} onChange={(event) => setJobForm((current) => ({ ...current, countyLocation: event.target.value }))} required />
+                </label>
                 <label className="field">
                   <span>Benefits</span>
                   <input value={jobForm.benefits} onChange={(event) => setJobForm((current) => ({ ...current, benefits: event.target.value }))} />
@@ -1465,6 +1481,9 @@ export function App() {
                   <span>Certifications required</span>
                   <input value={jobForm.certificationsRequired} onChange={(event) => setJobForm((current) => ({ ...current, certificationsRequired: event.target.value }))} placeholder="OSHA 10, EPA 608" />
                 </label>
+                <p className="muted">
+                  ZIP drives the actual map coordinates and distance match. County / area is the label workers see in the listing.
+                </p>
                 <button className="actionButton" disabled={isPostingJob} type="submit">
                   {isPostingJob ? "Saving..." : editingJobId ? "Save changes" : "Create draft job"}
                 </button>
@@ -1800,6 +1819,10 @@ export function App() {
                   <label className="field">
                     <span>Full name</span>
                     <input value={profileForm.fullName} onChange={(event) => setProfileForm((current) => ({ ...current, fullName: event.target.value }))} required />
+                  </label>
+                  <label className="field">
+                    <span>ZIP code</span>
+                    <input value={profileForm.zipCode} onChange={(event) => setProfileForm((current) => ({ ...current, zipCode: event.target.value }))} required />
                   </label>
                   <div className="splitFields">
                     <label className="field">

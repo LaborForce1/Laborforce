@@ -4,6 +4,7 @@ import { authService } from "../../services/authService.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { HttpError } from "../../utils/http.js";
 import { usersRepository } from "../users/repository.js";
+import { ensureUserCoordinates, lookupUsZipCode } from "../../services/locationLookup.js";
 
 const signupSchema = z.object({
   email: z.string().email(),
@@ -26,13 +27,20 @@ authRouter.post("/signup", asyncHandler(async (req, res) => {
     throw new HttpError(409, "An account with that email already exists.");
   }
 
+  const resolvedLocation = lookupUsZipCode(payload.zipCode);
+  if (!resolvedLocation) {
+    throw new HttpError(400, "Enter a valid US ZIP code.");
+  }
+
   const passwordHash = await authService.hashPassword(payload.password);
   const created = await usersRepository.create({
     email: payload.email,
     passwordHash,
     fullName: payload.fullName,
     phone: payload.phone,
-    zipCode: payload.zipCode,
+    zipCode: resolvedLocation.zipCode,
+    latitude: resolvedLocation.latitude,
+    longitude: resolvedLocation.longitude,
     userTag: payload.userTag,
     tradeType: payload.tradeType,
     businessName: payload.businessName
@@ -67,11 +75,13 @@ authRouter.post("/login", asyncHandler(async (req, res) => {
     throw new HttpError(401, "Invalid credentials.");
   }
 
+  const user = await ensureUserCoordinates(existingUser.user);
+
   res.json({
-    user: existingUser.user,
+    user,
     credentials: {
-      accessToken: authService.createAccessToken(existingUser.user.id),
-      refreshToken: authService.createRefreshToken(existingUser.user.id)
+      accessToken: authService.createAccessToken(user.id),
+      refreshToken: authService.createRefreshToken(user.id)
     }
   });
 }));

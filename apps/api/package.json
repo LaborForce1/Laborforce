@@ -9,7 +9,8 @@
     "build": "tsc -p tsconfig.json",
     "lint": "tsc -p tsconfig.json --noEmit",
     "db:init": "tsx src/scripts/dbInit.ts",
-    "db:seed": "tsx src/scripts/seed.ts"
+    "db:seed": "tsx src/scripts/seed.ts",
+    "db:backfill-locations": "tsx src/scripts/backfillLocations.ts"
   },
   "dependencies": {
     "@laborforce/shared": "0.1.0",
@@ -22,6 +23,7 @@
     "pg": "^8.12.0",
     "stripe": "^18.1.1",
     "tsx": "^4.19.2",
+    "zipcodes": "^8.0.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
@@ -31,6 +33,7 @@
     "@types/jsonwebtoken": "^9.0.6",
     "@types/node": "^22.10.1",
     "@types/pg": "^8.11.10",
+    "@types/zipcodes": "^8.0.5",
     "typescript": "^5.6.3"
   }
 }

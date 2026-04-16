@@ -4,6 +4,7 @@ import { requireAuth, type AuthedRequest } from "../../middleware/auth.js";
 import { asyncHandler } from "../../utils/asyncHandler.js";
 import { HttpError } from "../../utils/http.js";
 import { usersRepository } from "./repository.js";
+import { ensureUserCoordinates, lookupUsZipCode } from "../../services/locationLookup.js";
 
 export const usersRouter = Router();
 
@@ -13,7 +14,7 @@ usersRouter.get("/me", requireAuth, asyncHandler(async (req: AuthedRequest, res)
     throw new HttpError(404, "User not found.");
   }
 
-  res.json(user);
+  res.json(await ensureUserCoordinates(user));
 }));
 
 usersRouter.get("/", asyncHandler(async (_req, res) => {
@@ -23,6 +24,7 @@ usersRouter.get("/", asyncHandler(async (_req, res) => {
 usersRouter.patch("/me", requireAuth, asyncHandler(async (req: AuthedRequest, res) => {
   const payload = z.object({
     fullName: z.string().trim().min(2).max(120),
+    zipCode: z.string().trim().min(5).max(10),
     tradeType: z.string().trim().max(80).optional().nullable(),
     businessName: z.string().trim().max(120).optional().nullable(),
     bio: z.string().trim().max(600).optional().nullable(),
@@ -33,7 +35,17 @@ usersRouter.patch("/me", requireAuth, asyncHandler(async (req: AuthedRequest, re
     profilePhotoUrl: z.string().url().optional().nullable()
   }).parse(req.body);
 
-  const user = await usersRepository.updateProfile(req.userId ?? "", payload);
+  const resolvedLocation = lookupUsZipCode(payload.zipCode);
+  if (!resolvedLocation) {
+    throw new HttpError(400, "Enter a valid US ZIP code.");
+  }
+
+  const user = await usersRepository.updateProfile(req.userId ?? "", {
+    ...payload,
+    zipCode: resolvedLocation.zipCode,
+    latitude: resolvedLocation.latitude,
+    longitude: resolvedLocation.longitude
+  });
   if (!user) {
     throw new HttpError(404, "User not found.");
   }

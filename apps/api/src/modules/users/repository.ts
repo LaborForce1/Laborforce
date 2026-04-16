@@ -34,6 +34,8 @@ export interface CreateUserInput {
   fullName: string;
   phone: string;
   zipCode: string;
+  latitude: number;
+  longitude: number;
   userTag: UserTag;
   tradeType?: string;
   businessName?: string;
@@ -41,6 +43,9 @@ export interface CreateUserInput {
 
 export interface UpdateProfileInput {
   fullName: string;
+  zipCode: string;
+  latitude: number;
+  longitude: number;
   tradeType?: string | null;
   businessName?: string | null;
   bio?: string | null;
@@ -53,6 +58,12 @@ export interface UpdateProfileInput {
 
 export interface CompleteBusinessVerificationInput {
   businessName?: string | null;
+}
+
+export interface UpdateUserLocationInput {
+  zipCode: string;
+  latitude: number;
+  longitude: number;
 }
 
 function toNullableNumber(value: string | null): number | null {
@@ -126,11 +137,13 @@ export const usersRepository = {
           full_name,
           phone,
           zip_code,
+          latitude,
+          longitude,
           user_tag,
           trade_type,
           business_name
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         RETURNING
           id,
           email,
@@ -163,6 +176,8 @@ export const usersRepository = {
         input.fullName,
         input.phone,
         input.zipCode,
+        input.latitude,
+        input.longitude,
         input.userTag,
         input.tradeType ?? null,
         input.businessName ?? null
@@ -198,14 +213,17 @@ export const usersRepository = {
         UPDATE users
         SET
           full_name = $2,
-          trade_type = $3,
-          business_name = $4,
-          bio = $5,
-          years_experience = $6,
-          hourly_rate = $7,
-          union_status = $8,
-          open_to_work = $9,
-          profile_photo_url = $10,
+          zip_code = $3,
+          latitude = $4,
+          longitude = $5,
+          trade_type = $6,
+          business_name = $7,
+          bio = $8,
+          years_experience = $9,
+          hourly_rate = $10,
+          union_status = $11,
+          open_to_work = $12,
+          profile_photo_url = $13,
           updated_at = NOW()
         WHERE id = $1
         RETURNING
@@ -237,6 +255,9 @@ export const usersRepository = {
       [
         id,
         input.fullName,
+        input.zipCode,
+        input.latitude,
+        input.longitude,
         input.tradeType ?? null,
         input.businessName ?? null,
         input.bio ?? null,
@@ -246,6 +267,49 @@ export const usersRepository = {
         input.openToWork,
         input.profilePhotoUrl ?? null
       ]
+    );
+
+    const row = result.rows[0];
+    return row ? mapUser(row) : null;
+  },
+
+  async updateLocation(id: string, input: UpdateUserLocationInput) {
+    const result = await query<UserRow>(
+      `
+        UPDATE users
+        SET
+          zip_code = $2,
+          latitude = $3,
+          longitude = $4,
+          updated_at = NOW()
+        WHERE id = $1
+        RETURNING
+          id,
+          email,
+          password_hash,
+          full_name,
+          phone,
+          zip_code,
+          user_tag,
+          trade_type,
+          is_verified,
+          is_premium,
+          verification_status,
+          profile_photo_url,
+          bio,
+          years_experience,
+          hourly_rate,
+          open_to_work,
+          rating_average,
+          rating_count,
+          trust_badge,
+          union_status,
+          latitude,
+          longitude,
+          is_business_verified,
+          business_name
+      `,
+      [id, input.zipCode, input.latitude, input.longitude]
     );
 
     const row = result.rows[0];

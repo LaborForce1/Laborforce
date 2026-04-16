@@ -6,6 +6,7 @@ import { HttpError } from "../../utils/http.js";
 import { jobsRepository } from "./repository.js";
 import { usersRepository } from "../users/repository.js";
 import { authService } from "../../services/authService.js";
+import { ensureUserCoordinates, hasCoordinates, lookupUsZipCode } from "../../services/locationLookup.js";
 
 export const jobsRouter = Router();
 
@@ -35,6 +36,9 @@ jobsRouter.get("/", asyncHandler(async (req, res) => {
     try {
       const payload = authService.verifyAccessToken(token);
       user = await usersRepository.findById(payload.sub);
+      if (user) {
+        user = await ensureUserCoordinates(user);
+      }
     } catch {
       user = null;
     }
@@ -66,6 +70,7 @@ jobsRouter.post("/", requireAuth, asyncHandler(async (req: AuthedRequest, res) =
     jobType: z.string(),
     benefits: z.string().optional(),
     countyLocation: z.string().min(2),
+    locationZip: z.string().min(5).max(10),
     isSurge: z.boolean().optional(),
     unionRequired: z.boolean().optional(),
     certificationsRequired: z.array(z.string()).optional()
@@ -80,9 +85,17 @@ jobsRouter.post("/", requireAuth, asyncHandler(async (req: AuthedRequest, res) =
     throw new HttpError(403, "Only employers can create job listings.");
   }
 
+  const resolvedLocation = lookupUsZipCode(payload.locationZip);
+  if (!resolvedLocation) {
+    throw new HttpError(400, "Enter a valid US ZIP code for the job location.");
+  }
+
   const job = await jobsRepository.create({
     employerId: user.id,
-    ...payload
+    ...payload,
+    locationZip: resolvedLocation.zipCode,
+    latitude: resolvedLocation.latitude,
+    longitude: resolvedLocation.longitude
   });
 
   res.status(201).json({
@@ -120,6 +133,19 @@ jobsRouter.post("/:jobId/publish", requireAuth, asyncHandler(async (req: AuthedR
     throw new HttpError(400, "Only draft jobs can be published.");
   }
 
+  if (!hasCoordinates(job.latitude, job.longitude)) {
+    const resolvedLocation = lookupUsZipCode(job.locationZip);
+    if (!resolvedLocation) {
+      throw new HttpError(400, "Add a valid US ZIP code to this draft before publishing it.");
+    }
+
+    await jobsRepository.updateLocationForEmployer(jobId, user.id, {
+      locationZip: resolvedLocation.zipCode,
+      latitude: resolvedLocation.latitude,
+      longitude: resolvedLocation.longitude
+    });
+  }
+
   const publishedJob = await jobsRepository.publishDraft(jobId);
 
   res.json({
@@ -143,6 +169,7 @@ jobsRouter.patch("/:jobId", requireAuth, asyncHandler(async (req: AuthedRequest,
     jobType: z.string(),
     benefits: z.string().optional(),
     countyLocation: z.string().min(2),
+    locationZip: z.string().min(5).max(10),
     unionRequired: z.boolean().optional(),
     certificationsRequired: z.array(z.string()).optional()
   }).parse(req.body);
@@ -156,7 +183,17 @@ jobsRouter.patch("/:jobId", requireAuth, asyncHandler(async (req: AuthedRequest,
     throw new HttpError(403, "Only employers can edit job listings.");
   }
 
-  const updatedJob = await jobsRepository.updateForEmployer(jobId, user.id, payload);
+  const resolvedLocation = lookupUsZipCode(payload.locationZip);
+  if (!resolvedLocation) {
+    throw new HttpError(400, "Enter a valid US ZIP code for the job location.");
+  }
+
+  const updatedJob = await jobsRepository.updateForEmployer(jobId, user.id, {
+    ...payload,
+    locationZip: resolvedLocation.zipCode,
+    latitude: resolvedLocation.latitude,
+    longitude: resolvedLocation.longitude
+  });
   if (!updatedJob) {
     throw new HttpError(404, "Job not found for this employer.");
   }

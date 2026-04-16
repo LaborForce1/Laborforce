@@ -46,6 +46,9 @@ export interface CreateJobInput {
   jobType: string;
   benefits?: string;
   countyLocation: string;
+  locationZip: string;
+  latitude: number;
+  longitude: number;
   isSurge?: boolean;
   unionRequired?: boolean;
   certificationsRequired?: string[];
@@ -60,6 +63,9 @@ export interface UpdateJobInput {
   jobType: string;
   benefits?: string;
   countyLocation: string;
+  locationZip: string;
+  latitude: number;
+  longitude: number;
   unionRequired?: boolean;
   certificationsRequired?: string[];
 }
@@ -283,9 +289,9 @@ export const jobsRepository = {
         input.jobType,
         input.benefits ?? null,
         input.countyLocation,
-        input.countyLocation,
-        0,
-        0,
+        input.locationZip,
+        input.latitude,
+        input.longitude,
         input.isSurge ?? false,
         input.unionRequired ?? false,
         JSON.stringify(input.certificationsRequired ?? [])
@@ -327,9 +333,11 @@ export const jobsRepository = {
           job_type = $8,
           benefits = $9,
           county_location = $10,
-          location_zip = $10,
-          union_required = $11,
-          certifications_required = $12::jsonb
+          location_zip = $11,
+          latitude = $12,
+          longitude = $13,
+          union_required = $14,
+          certifications_required = $15::jsonb
         WHERE id = $1 AND employer_id = $2
         ${returningFields}
       `,
@@ -344,9 +352,34 @@ export const jobsRepository = {
         input.jobType,
         input.benefits ?? null,
         input.countyLocation,
+        input.locationZip,
+        input.latitude,
+        input.longitude,
         input.unionRequired ?? false,
         JSON.stringify(input.certificationsRequired ?? [])
       ]
+    );
+
+    const row = result.rows[0];
+    return row ? mapJob(row) : null;
+  },
+
+  async updateLocationForEmployer(
+    id: string,
+    employerId: string,
+    input: { locationZip: string; latitude: number; longitude: number }
+  ) {
+    const result = await query<JobListingRow>(
+      `
+        UPDATE job_listings
+        SET
+          location_zip = $3,
+          latitude = $4,
+          longitude = $5
+        WHERE id = $1 AND employer_id = $2
+        ${returningFields}
+      `,
+      [id, employerId, input.locationZip, input.latitude, input.longitude]
     );
 
     const row = result.rows[0];
