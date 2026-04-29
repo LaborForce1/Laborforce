@@ -11,6 +11,7 @@
     "dev:web": "npm run dev --workspace @laborforce/web",
     "dev:mobile": "npm run dev --workspace @laborforce/mobile",
     "start:api": "npm run start --workspace @laborforce/api",
+    "test:beta": "node scripts/beta-smoke.mjs",
     "build": "npm run build --workspaces",
     "lint": "npm run lint --workspaces"
   }

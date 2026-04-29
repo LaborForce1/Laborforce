@@ -56,6 +56,19 @@ interface BusinessVerificationResponse {
   message: string;
 }
 
+interface DepositCheckoutResponse {
+  mode: "stripe_checkout" | "development_simulation";
+  jobId: string;
+  checkoutUrl?: string | null;
+  message?: string;
+}
+
+interface DepositCompleteResponse {
+  job: JobListing;
+  paymentMode: "stripe_checkout" | "development_simulation" | "already_published";
+  message: string;
+}
+
 interface AuthFormState {
   fullName: string;
   businessName: string;
@@ -75,6 +88,7 @@ interface JobFormState {
   jobType: string;
   benefits: string;
   countyLocation: string;
+  locationZip: string;
   certificationsRequired: string;
 }
 
@@ -108,6 +122,7 @@ const emptyJobForm: JobFormState = {
   jobType: "full_time",
   benefits: "",
   countyLocation: "",
+  locationZip: "",
   certificationsRequired: ""
 };
 
@@ -528,6 +543,23 @@ export function App() {
   }, [authState, user]);
 
   useEffect(() => {
+    if (!authState?.accessToken) {
+      return;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const depositStatus = params.get("deposit");
+    const jobId = params.get("jobId");
+    const sessionId = params.get("session_id") ?? undefined;
+
+    if (depositStatus !== "success" || !jobId) {
+      return;
+    }
+
+    void completeJobDeposit(jobId, sessionId, authState.accessToken);
+  }, [authState?.accessToken]);
+
+  useEffect(() => {
     if (!user) {
       setProfileForm(emptyProfileForm);
       return;
@@ -702,6 +734,7 @@ export function App() {
         jobType: jobForm.jobType,
         benefits: jobForm.benefits,
         countyLocation: jobForm.countyLocation,
+        locationZip: jobForm.locationZip,
         certificationsRequired: jobForm.certificationsRequired
           .split(",")
           .map((value) => value.trim())
@@ -761,6 +794,7 @@ export function App() {
       jobType: job.jobType,
       benefits: job.benefits ?? "",
       countyLocation: job.countyLocation,
+      locationZip: job.locationZip,
       certificationsRequired: job.certificationsRequired.join(", ")
     });
   }
@@ -780,12 +814,45 @@ export function App() {
     setSuccessMessage(null);
 
     try {
-      await apiPost<{ job: JobListing; message: string }>(`/jobs/${jobId}/publish`, {}, authState.accessToken);
-      setSuccessMessage("Job is live. Applicants can see it now.");
-      await loadJobs();
-      await loadEmployerJobs(authState.accessToken);
+      const checkout = await apiPost<DepositCheckoutResponse>(
+        `/payments/job-deposits/${jobId}/checkout`,
+        {},
+        authState.accessToken
+      );
+
+      if (checkout.mode === "stripe_checkout" && checkout.checkoutUrl) {
+        window.location.assign(checkout.checkoutUrl);
+        return;
+      }
+
+      await completeJobDeposit(jobId, undefined, authState.accessToken);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Unable to publish job.");
+    } finally {
+      setPublishingJobId(null);
+    }
+  }
+
+  async function completeJobDeposit(jobId: string, sessionId: string | undefined, token: string) {
+    setPublishingJobId(jobId);
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    try {
+      const response = await apiPost<DepositCompleteResponse>(
+        "/payments/job-deposits/complete",
+        { jobId, sessionId },
+        token
+      );
+
+      const cleanUrl = `${window.location.pathname}${window.location.hash}`;
+      window.history.replaceState({}, document.title, cleanUrl);
+      setSuccessMessage(response.message || "Deposit received. Job is live.");
+      await loadJobs();
+      await loadEmployerJobs(token);
+      setActiveView("jobs");
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "Unable to complete job deposit.");
     } finally {
       setPublishingJobId(null);
     }
@@ -1953,6 +2020,10 @@ export function App() {
                     <input value={jobForm.countyLocation} onChange={(event) => setJobForm((current) => ({ ...current, countyLocation: event.target.value }))} required />
                   </label>
                 </div>
+                <label className="field">
+                  <span>Job ZIP code</span>
+                  <input value={jobForm.locationZip} onChange={(event) => setJobForm((current) => ({ ...current, locationZip: event.target.value }))} required />
+                </label>
                 <label className="field">
                   <span>Benefits</span>
                   <input value={jobForm.benefits} onChange={(event) => setJobForm((current) => ({ ...current, benefits: event.target.value }))} />

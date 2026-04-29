@@ -311,13 +311,17 @@ export const jobsRepository = {
           stripe_payment_intent_id = COALESCE($2, stripe_payment_intent_id),
           posted_at = NOW(),
           expires_at = NOW() + INTERVAL '30 days'
-        WHERE id = $1
+        WHERE id = $1 AND status = 'draft'
         ${returningFields}
       `,
       [id, paymentReference ?? `dev_simulated_${Date.now()}`]
     );
 
-    return mapJob(result.rows[0]);
+    if (result.rows[0]) {
+      return mapJob(result.rows[0]);
+    }
+
+    return this.findById(id);
   },
 
   async updateForEmployer(id: string, employerId: string, input: UpdateJobInput) {

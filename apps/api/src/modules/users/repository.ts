@@ -358,5 +358,47 @@ export const usersRepository = {
 
     const row = result.rows[0];
     return row ? mapUser(row) : null;
+  },
+
+  async completeAccountVerification(id: string) {
+    const result = await query<UserRow>(
+      `
+        UPDATE users
+        SET
+          is_verified = TRUE,
+          verification_status = 'verified',
+          updated_at = NOW()
+        WHERE id = $1
+        RETURNING
+          id,
+          email,
+          password_hash,
+          full_name,
+          phone,
+          zip_code,
+          user_tag,
+          trade_type,
+          is_verified,
+          is_premium,
+          verification_status,
+          profile_photo_url,
+          bio,
+          years_experience,
+          hourly_rate,
+          open_to_work,
+          rating_average,
+          rating_count,
+          trust_badge,
+          union_status,
+          latitude,
+          longitude,
+          is_business_verified,
+          business_name
+      `,
+      [id]
+    );
+
+    const row = result.rows[0];
+    return row ? mapUser(row) : null;
   }
 };

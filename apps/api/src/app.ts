@@ -9,8 +9,8 @@ export const app = express();
 
 app.use(helmet());
 app.use(cors());
+app.use("/api/payments/webhooks/stripe", express.raw({ type: "application/json" }));
 app.use(express.json({ limit: "5mb" }));
 app.use(simpleRateLimit);
 app.use("/api", apiRouter);
 app.use(errorHandler);
-

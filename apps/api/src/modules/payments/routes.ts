@@ -1,4 +1,5 @@
 import { Router } from "express";
+import type Stripe from "stripe";
 import { z } from "zod";
 import { integrations } from "../../services/integrations.js";
 import { requireAuth, type AuthedRequest } from "../../middleware/auth.js";
@@ -10,6 +11,54 @@ import { stripeClient } from "../../services/stripe.js";
 import { env } from "../../config/env.js";
 
 export const paymentsRouter = Router();
+
+function ensurePaymentSimulationAllowed() {
+  if (env.NODE_ENV === "production") {
+    throw new HttpError(503, "Stripe is required before job deposits can be accepted in production.");
+  }
+}
+
+async function publishPaidCheckoutSession(session: Stripe.Checkout.Session) {
+  const jobId = session.metadata?.jobId;
+  const employerId = session.metadata?.employerId;
+
+  if (!jobId || !employerId) {
+    throw new HttpError(400, "Stripe session is missing LaborForce job metadata.");
+  }
+
+  if (session.payment_status !== "paid") {
+    return {
+      published: false,
+      job: null,
+      message: "Stripe checkout session is not paid yet."
+    };
+  }
+
+  const job = await jobsRepository.findById(jobId);
+  if (!job) {
+    throw new HttpError(404, "Job not found.");
+  }
+
+  if (job.employerId !== employerId) {
+    throw new HttpError(400, "Stripe session employer does not match this job.");
+  }
+
+  const paymentReference =
+    typeof session.payment_intent === "string"
+      ? session.payment_intent
+      : session.id;
+
+  const publishedJob = await jobsRepository.publishDraft(job.id, paymentReference);
+  if (!publishedJob) {
+    throw new HttpError(404, "Job not found.");
+  }
+
+  return {
+    published: publishedJob.status === "active",
+    job: publishedJob,
+    message: "Deposit received and job published."
+  };
+}
 
 paymentsRouter.get("/config", (_req, res) => {
   res.json({
@@ -51,6 +100,8 @@ paymentsRouter.post("/job-deposits/:jobId/checkout", requireAuth, asyncHandler(a
   }
 
   if (!stripeClient) {
+    ensurePaymentSimulationAllowed();
+
     return res.json({
       mode: "development_simulation",
       jobId,
@@ -67,6 +118,13 @@ paymentsRouter.post("/job-deposits/:jobId/checkout", requireAuth, asyncHandler(a
       jobId: job.id,
       employerId: user.id,
       flow: "job_deposit"
+    },
+    payment_intent_data: {
+      metadata: {
+        jobId: job.id,
+        employerId: user.id,
+        flow: "job_deposit"
+      }
     },
     line_items: [
       {
@@ -119,7 +177,13 @@ paymentsRouter.post("/job-deposits/complete", requireAuth, asyncHandler(async (r
   }
 
   if (!stripeClient) {
+    ensurePaymentSimulationAllowed();
+
     const publishedJob = await jobsRepository.publishDraft(payload.jobId);
+    if (!publishedJob) {
+      throw new HttpError(404, "Job not found.");
+    }
+
     return res.json({
       job: publishedJob,
       paymentMode: "development_simulation",
@@ -140,30 +204,62 @@ paymentsRouter.post("/job-deposits/complete", requireAuth, asyncHandler(async (r
     throw new HttpError(400, "Stripe session does not match this job.");
   }
 
-  const paymentReference =
-    typeof session.payment_intent === "string"
-      ? session.payment_intent
-      : session.id;
-
-  const publishedJob = await jobsRepository.publishDraft(payload.jobId, paymentReference);
+  const result = await publishPaidCheckoutSession(session);
+  if (!result.job) {
+    throw new HttpError(400, result.message);
+  }
 
   res.json({
-    job: publishedJob,
+    job: result.job,
     paymentMode: "stripe_checkout",
-    message: "Deposit received and job published."
+    message: result.message
   });
 }));
 
-paymentsRouter.post("/webhooks/stripe", (req, res) => {
+paymentsRouter.post("/webhooks/stripe", asyncHandler(async (req, res) => {
+  if (!stripeClient) {
+    throw new HttpError(503, "Stripe is not configured.");
+  }
+
+  if (!env.STRIPE_WEBHOOK_SECRET) {
+    throw new HttpError(503, "Stripe webhook secret is not configured.");
+  }
+
+  const signature = req.header("stripe-signature");
+  if (!signature) {
+    throw new HttpError(400, "Missing Stripe signature.");
+  }
+
+  const rawBody = Buffer.isBuffer(req.body) ? req.body : Buffer.from(JSON.stringify(req.body));
+  let event: Stripe.Event;
+
+  try {
+    event = stripeClient.webhooks.constructEvent(rawBody, signature, env.STRIPE_WEBHOOK_SECRET);
+  } catch {
+    throw new HttpError(400, "Invalid Stripe webhook signature.");
+  }
+
+  let result: Awaited<ReturnType<typeof publishPaidCheckoutSession>> | null = null;
+
+  switch (event.type) {
+    case "checkout.session.completed":
+    case "checkout.session.async_payment_succeeded":
+      result = await publishPaidCheckoutSession(event.data.object as Stripe.Checkout.Session);
+      break;
+    case "checkout.session.async_payment_failed":
+    case "payment_intent.payment_failed":
+    case "customer.subscription.created":
+    case "customer.subscription.deleted":
+    case "charge.refunded":
+      break;
+    default:
+      break;
+  }
+
   res.json({
     received: true,
-    eventTypes: [
-      "payment_intent.succeeded",
-      "payment_intent.payment_failed",
-      "customer.subscription.created",
-      "customer.subscription.deleted",
-      "charge.refunded"
-    ],
-    payloadPreview: req.body
+    eventType: event.type,
+    published: result?.published ?? false,
+    jobId: result?.job?.id ?? null
   });
-});
+}));

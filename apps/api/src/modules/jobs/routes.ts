@@ -7,6 +7,7 @@ import { jobsRepository } from "./repository.js";
 import { usersRepository } from "../users/repository.js";
 import { authService } from "../../services/authService.js";
 import { ensureUserCoordinates, hasCoordinates, lookupUsZipCode } from "../../services/locationLookup.js";
+import { env } from "../../config/env.js";
 
 export const jobsRouter = Router();
 
@@ -107,6 +108,10 @@ jobsRouter.post("/", requireAuth, asyncHandler(async (req: AuthedRequest, res) =
 }));
 
 jobsRouter.post("/:jobId/publish", requireAuth, asyncHandler(async (req: AuthedRequest, res) => {
+  if (env.NODE_ENV === "production") {
+    throw new HttpError(400, "Start the job deposit checkout before publishing this draft.");
+  }
+
   const { jobId } = z.object({
     jobId: z.string().uuid()
   }).parse(req.params);
